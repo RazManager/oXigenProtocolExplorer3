@@ -24,7 +24,7 @@ class App extends StatelessWidget {
           routes: [
             GoRoute(
               path: '/',
-              builder: (context, state) => const Settings(),
+              builder: (context, state) => const SettingsPage(),
             ),
             GoRoute(
               path: '/serial-port-demo',
