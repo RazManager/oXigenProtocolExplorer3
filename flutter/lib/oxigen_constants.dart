@@ -31,3 +31,5 @@ enum OxigenRxCarOnTrack {
 }
 
 enum OxigenRxCarPitLane { carIsNotInThePitLane, carIsInThePitLane }
+
+enum OxigenRxDeviceSoftwareReleaseOwner { controllerSoftwareRelease, carSoftwareRelease }

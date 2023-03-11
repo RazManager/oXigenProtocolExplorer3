@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
@@ -6,6 +7,8 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'oxigen_constants.dart';
 
 class RxControllerCarPair {
+  RxControllerCarPair({required this.id});
+  final int id;
   late OxigenRxCarReset carReset;
   late OxigenRxControllerCarLink controllerCarLink;
   late OxigenRxControllerBatteryLevel controllerBatteryLevel;
@@ -15,9 +18,16 @@ class RxControllerCarPair {
   late OxigenRxCarOnTrack carOnTrack;
   late OxigenRxCarPitLane carPitLane;
   late int triggerMeanValue;
+  late int lastLapTime;
+  late int lastLapTimeDelay;
+  late int totalLaps;
+  late int raceTimer;
+  double? controllerFirmwareVersion;
+  double? carFirmwareVersion;
 }
 
 class AppModel extends ChangeNotifier {
+  int menuIndex = 0;
   SerialPort? serialPort;
   SerialPortReader? _serialPortReader;
   List<String> availablePortNames = [];
@@ -27,7 +37,7 @@ class AppModel extends ChangeNotifier {
   int oxigenMaximumSpeed = 255;
 
   double? oxigenDongleFirmwareVersion;
-  Map<int, RxControllerCarPair> rxControllerCarPairs = {};
+  List<RxControllerCarPair?> rxControllerCarPairs = List<RxControllerCarPair?>.generate(20, (index) => null);
 
   void availablePortsRefresh(bool shouldNotify) {
     serialPortClear(shouldNotify);
@@ -67,7 +77,10 @@ class AppModel extends ChangeNotifier {
   }
 
   bool serialPortCanOpen() {
-    return serialPort != null && !serialPort!.isOpen;
+    return serialPort != null &&
+        !serialPort!.isOpen &&
+        oxigenTxPitlaneLapCounting != null &&
+        (oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled || oxigenTxPitlaneLapTrigger != null);
   }
 
   void serialPortOpen() {
@@ -78,7 +91,8 @@ class AppModel extends ChangeNotifier {
       return;
     }
     _serialPortReadStreamAsync();
-    serialPortDongleCommandDongleFirmwareVersion();
+    _serialPortDongleCommandDongleFirmwareVersion();
+    _serialPortWriteLoop();
     notifyListeners();
   }
 
@@ -105,7 +119,7 @@ class AppModel extends ChangeNotifier {
     return serialPort != null && serialPort!.isOpen;
   }
 
-  void serialPortDongleCommandDongleFirmwareVersion() {
+  void _serialPortDongleCommandDongleFirmwareVersion() {
     var bytes = Uint8List.fromList([6, 6, 6, 6, 0, 0, 0]);
     var i = serialPort!.write(bytes);
     print(i);
@@ -122,7 +136,7 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void serialPortWriteRaceStatus() {
+  void _serialPortWriteLoop() {
     int byte0;
     switch (oxigenTxRaceStatus) {
       case null:
@@ -167,9 +181,14 @@ class AppModel extends ChangeNotifier {
     }
 
     var bytes = Uint8List.fromList([byte0, oxigenMaximumSpeed, 0, 0, 0, 0, 0, 0, 0, 0]);
-    var i = serialPort!.write(bytes);
-    print(i);
-    print(serialPort!.bytesAvailable);
+
+    if (serialPortIsOpen()) {
+      var i = serialPort!.write(bytes);
+      //print(i);
+      //print(serialPort!.bytesAvailable);
+
+      Timer(const Duration(milliseconds: 1000), () => _serialPortWriteLoop());
+    }
   }
 
   Future<void> _serialPortReadStreamAsync() async {
@@ -183,7 +202,15 @@ class AppModel extends ChangeNotifier {
         } else if (buffer.length % 13 == 0) {
           var offset = 0;
           do {
-            var rxControllerCarPair = RxControllerCarPair();
+            var id = buffer[1 + offset];
+
+            //var rxControllerCarPair = RxControllerCarPair(id: id);
+            RxControllerCarPair rxControllerCarPair;
+            if (rxControllerCarPairs[id] == null) {
+              rxControllerCarPair = RxControllerCarPair(id: id);
+            } else {
+              rxControllerCarPair = rxControllerCarPairs[id]!;
+            }
 
             if (buffer[0 + offset] & (pow(2, 0) as int) == 0) {
               rxControllerCarPair.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
@@ -236,8 +263,34 @@ class AppModel extends ChangeNotifier {
             }
 
             rxControllerCarPair.triggerMeanValue = buffer[7 + offset] & 0x7F;
+            rxControllerCarPair.lastLapTime = buffer[2 + offset] * 256 + buffer[3 + offset];
+            rxControllerCarPair.lastLapTimeDelay = buffer[4 + offset];
+            rxControllerCarPair.totalLaps = buffer[6 + offset] * 256 + buffer[5 + offset];
 
-            rxControllerCarPairs[buffer[1 + offset]] = rxControllerCarPair;
+            OxigenRxDeviceSoftwareReleaseOwner deviceSoftwareReleaseOwner;
+            if (buffer[8 + offset] & (pow(2, 7) as int) == 0) {
+              deviceSoftwareReleaseOwner = OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease;
+            } else {
+              deviceSoftwareReleaseOwner = OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease;
+            }
+
+            var softwareRelease = (buffer[8 + offset] & 48) / 16 + (buffer[8 + offset] & 15) / 100;
+
+            switch (deviceSoftwareReleaseOwner) {
+              case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:
+                rxControllerCarPair.controllerFirmwareVersion = softwareRelease;
+                break;
+              case OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease:
+                rxControllerCarPair.carFirmwareVersion = softwareRelease;
+                break;
+            }
+
+            rxControllerCarPair.raceTimer = buffer[9 + offset] * 16777216 +
+                buffer[10 + offset] * 65536 +
+                buffer[11 + offset] * 256 +
+                buffer[12 + offset];
+
+            rxControllerCarPairs[id] = rxControllerCarPair;
 
             offset = offset + 13;
           } while (offset < buffer.length - 1);
