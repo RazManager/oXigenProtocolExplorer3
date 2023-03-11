@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'app_model.dart';
 import 'controllers.dart';
+import 'serial_port_demo.dart';
 import 'settings.dart';
 
 final router = GoRouter(
@@ -18,6 +19,12 @@ final router = GoRouter(
       path: '/controllers',
       builder: (BuildContext context, GoRouterState state) {
         return const ControllersPage();
+      },
+    ),
+    GoRoute(
+      path: '/demo',
+      builder: (BuildContext context, GoRouterState state) {
+        return const DemoPage();
       },
     ),
   ],
@@ -51,6 +58,10 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
 
                   case 1:
                     context.go('/controllers');
+                    break;
+
+                  case 2:
+                    context.go('/demo');
                     break;
 
                   default:
