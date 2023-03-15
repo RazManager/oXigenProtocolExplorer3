@@ -7,7 +7,7 @@ import 'app_model.dart';
 import 'page_base.dart';
 
 class SettingsPage extends PageBase {
-  const SettingsPage({super.key}) : super(body: const Settings());
+  const SettingsPage({super.key}) : super(title: 'Settings', body: const Settings());
 
   @override
   State<PageBase> createState() => _SettingsPageState();
@@ -23,7 +23,7 @@ class Settings extends StatelessWidget {
     var model = context.read<AppModel>();
     model.availablePortsRefresh(false);
     return Consumer<AppModel>(builder: (context, model, child) {
-      return Column(children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         DropdownButton<String>(
             value: model.serialPort?.name,
             items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
@@ -36,7 +36,10 @@ class Settings extends StatelessWidget {
               return result;
             }).toList(),
             onChanged: (value) => model.serialPortSet(value!, true)),
-        const Text('Pitlane lap counting'),
+        const Text(
+          'Pitlane lap counting *',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         SegmentedButton<OxigenTxPitlaneLapCounting>(
           segments: const [
             ButtonSegment<OxigenTxPitlaneLapCounting>(
@@ -52,7 +55,10 @@ class Settings extends StatelessWidget {
             }
           },
         ),
-        const Text('Pitlane lap trigger placement'),
+        const Text(
+          'Pitlane lap trigger placement *',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         SegmentedButton<OxigenTxPitlaneLapTrigger>(
           segments: const [
             ButtonSegment<OxigenTxPitlaneLapTrigger>(

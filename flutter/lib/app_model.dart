@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
@@ -6,11 +7,29 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 
 import 'oxigen_constants.dart';
 
+class TxControllerCarPairState {
+  int? maximumSpeed;
+  int? minimumSpeed;
+  int? pitlaneSpeed;
+  int? maximumBrake;
+  bool? forceLcUp;
+  bool? forceLcDown;
+  OxigenTxTransmissionPower? transmissionPower;
+}
+
+class TxCommand {
+  TxCommand({required this.id, required this.command});
+  final int id;
+  final OxigenTxCommand command;
+}
+
 class RxControllerCarPair {
   RxControllerCarPair({required this.id});
   final int id;
   late OxigenRxCarReset carReset;
+  int carResetCount = 0;
   late OxigenRxControllerCarLink controllerCarLink;
+  int controllerCarLinkCount = 0;
   late OxigenRxControllerBatteryLevel controllerBatteryLevel;
   late OxigenRxTrackCall trackCall;
   late OxigenRxArrowUpButton arrowUpButton;
@@ -33,8 +52,10 @@ class AppModel extends ChangeNotifier {
   List<String> availablePortNames = [];
   OxigenTxPitlaneLapCounting? oxigenTxPitlaneLapCounting;
   OxigenTxPitlaneLapTrigger? oxigenTxPitlaneLapTrigger;
-  OxigenTxRaceStatus? oxigenTxRaceStatus = OxigenTxRaceStatus.running;
-  int oxigenMaximumSpeed = 255;
+  OxigenTxRaceState? oxigenTxRaceState;
+  int? oxigenMaximumSpeed;
+  TxControllerCarPairState oxigenGlobalTxControllerCarPairState = TxControllerCarPairState();
+  Queue<TxCommand> oxigenTxCommandQueue = Queue<TxCommand>();
 
   double? oxigenDongleFirmwareVersion;
   List<RxControllerCarPair?> rxControllerCarPairs = List<RxControllerCarPair?>.generate(20, (index) => null);
@@ -136,24 +157,77 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void oxigenTxRaceStateSet(OxigenTxRaceState value) {
+    oxigenTxRaceState = value;
+    notifyListeners();
+  }
+
+  void oxigenMaximumSpeedSet(int value) {
+    oxigenMaximumSpeed = value;
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxMaximumSpeedSet(int value) {
+    oxigenGlobalTxControllerCarPairState.maximumSpeed = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.maximumSpeed));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxMinimumSpeedSet(int value) {
+    oxigenGlobalTxControllerCarPairState.minimumSpeed = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.minimumSpeed));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxPitlaneSpeedSet(int value) {
+    oxigenGlobalTxControllerCarPairState.pitlaneSpeed = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.pitlaneSpeed));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxMaximumBrakeSet(int value) {
+    oxigenGlobalTxControllerCarPairState.maximumBrake = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.maximumBrake));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxForceLcUpSet(bool value) {
+    oxigenGlobalTxControllerCarPairState.forceLcUp = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.forceLcUp));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxForceLcDownSet(bool value) {
+    oxigenGlobalTxControllerCarPairState.forceLcDown = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.forceLcDown));
+    notifyListeners();
+  }
+
+  void oxigenGlobalTxTransmissionPowerSet(OxigenTxTransmissionPower value) {
+    oxigenGlobalTxControllerCarPairState.transmissionPower = value;
+    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.transmissionPower));
+    notifyListeners();
+  }
+
   void _serialPortWriteLoop() {
+    print('_serialPortWriteLoop start');
     int byte0;
-    switch (oxigenTxRaceStatus) {
+    switch (oxigenTxRaceState) {
       case null:
         return;
-      case OxigenTxRaceStatus.running:
+      case OxigenTxRaceState.running:
         byte0 = 0x3;
         break;
-      case OxigenTxRaceStatus.paused:
+      case OxigenTxRaceState.paused:
         byte0 = 0x4;
         break;
-      case OxigenTxRaceStatus.stopped:
+      case OxigenTxRaceState.stopped:
         byte0 = 0x1;
         break;
-      case OxigenTxRaceStatus.flaggedLcEnabled:
+      case OxigenTxRaceState.flaggedLcEnabled:
         byte0 = 0x5;
         break;
-      case OxigenTxRaceStatus.flaggedLcDisabled:
+      case OxigenTxRaceState.flaggedLcDisabled:
         byte0 = 0x15;
         break;
     }
@@ -180,10 +254,58 @@ class AppModel extends ChangeNotifier {
       }
     }
 
-    var bytes = Uint8List.fromList([byte0, oxigenMaximumSpeed, 0, 0, 0, 0, 0, 0, 0, 0]);
+    if (oxigenMaximumSpeed == null) {
+      return;
+    }
 
     if (serialPortIsOpen()) {
-      var i = serialPort!.write(bytes);
+      var id = 0;
+      var byte3 = 0;
+      var byte4 = 0;
+
+      if (oxigenTxCommandQueue.isNotEmpty) {
+        var txCommand = oxigenTxCommandQueue.first;
+        oxigenTxCommandQueue.removeFirst();
+        id = txCommand.id;
+        switch (txCommand.command) {
+          case OxigenTxCommand.maximumSpeed:
+            byte3 = 2;
+            byte4 = oxigenGlobalTxControllerCarPairState.maximumSpeed ?? 0;
+            break;
+          case OxigenTxCommand.minimumSpeed:
+          case OxigenTxCommand.forceLcUp:
+          case OxigenTxCommand.forceLcDown:
+            byte3 = 3;
+            byte4 = (oxigenGlobalTxControllerCarPairState.minimumSpeed ?? 0) &
+                (oxigenGlobalTxControllerCarPairState.forceLcDown == null
+                    ? 0
+                    : oxigenGlobalTxControllerCarPairState.forceLcDown!
+                        ? 64
+                        : 0) &
+                (oxigenGlobalTxControllerCarPairState.forceLcUp == null
+                    ? 0
+                    : oxigenGlobalTxControllerCarPairState.forceLcUp!
+                        ? 128
+                        : 0);
+            break;
+          case OxigenTxCommand.pitlaneSpeed:
+            byte3 = 1;
+            byte4 = oxigenGlobalTxControllerCarPairState.pitlaneSpeed ?? 0;
+            break;
+          case OxigenTxCommand.maximumBrake:
+            byte3 = 5;
+            byte4 = oxigenGlobalTxControllerCarPairState.maximumBrake ?? 0;
+            break;
+          case OxigenTxCommand.transmissionPower:
+            byte3 = 4;
+            byte4 = oxigenGlobalTxControllerCarPairState.transmissionPower?.index ?? 0;
+            break;
+        }
+      }
+
+      var bytes = Uint8List.fromList([byte0, oxigenMaximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
+
+      serialPort!.write(bytes);
       //print(i);
       //print(serialPort!.bytesAvailable);
 
@@ -204,18 +326,26 @@ class AppModel extends ChangeNotifier {
           do {
             var id = buffer[1 + offset];
 
-            //var rxControllerCarPair = RxControllerCarPair(id: id);
             RxControllerCarPair rxControllerCarPair;
+            OxigenRxCarReset? oldCarReset;
+            OxigenRxControllerCarLink? oldControllerCarLink;
             if (rxControllerCarPairs[id] == null) {
               rxControllerCarPair = RxControllerCarPair(id: id);
             } else {
               rxControllerCarPair = rxControllerCarPairs[id]!;
+              oldCarReset = rxControllerCarPair.carReset;
+              oldControllerCarLink = rxControllerCarPair.controllerCarLink;
             }
 
             if (buffer[0 + offset] & (pow(2, 0) as int) == 0) {
               rxControllerCarPair.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
             } else {
               rxControllerCarPair.carReset = OxigenRxCarReset.carHasJustBeenPoweredUpOrReset;
+            }
+            if (rxControllerCarPair.carReset == OxigenRxCarReset.carHasJustBeenPoweredUpOrReset &&
+                oldCarReset != null &&
+                oldCarReset != rxControllerCarPair.carReset) {
+              rxControllerCarPair.carResetCount++;
             }
 
             if (buffer[0 + offset] & (pow(2, 1) as int) == 0) {
@@ -224,6 +354,12 @@ class AppModel extends ChangeNotifier {
             } else {
               rxControllerCarPair.controllerCarLink =
                   OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar;
+            }
+            if (rxControllerCarPair.controllerCarLink ==
+                    OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar &&
+                oldControllerCarLink != null &&
+                oldControllerCarLink != rxControllerCarPair.controllerCarLink) {
+              rxControllerCarPair.controllerCarLinkCount++;
             }
 
             if (buffer[0 + offset] & (pow(2, 2) as int) == 0) {
@@ -275,6 +411,9 @@ class AppModel extends ChangeNotifier {
             }
 
             var softwareRelease = (buffer[8 + offset] & 48) / 16 + (buffer[8 + offset] & 15) / 100;
+
+            print(buffer[8 + offset] & (pow(2, 7) as int));
+            print(buffer[8 + offset] & 15);
 
             switch (deviceSoftwareReleaseOwner) {
               case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:

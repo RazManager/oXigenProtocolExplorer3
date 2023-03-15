@@ -4,14 +4,13 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'page_base.dart';
 
 class DemoPage extends PageBase {
-  const DemoPage({super.key}) : super(body: const Demo());
+  const DemoPage({super.key}) : super(title: 'Demo', body: const Demo());
 
   @override
   State<PageBase> createState() => _DemoPageState();
 }
 
 class _DemoPageState<SettingsPage> extends PageBaseState<PageBase> {}
-
 
 class Demo extends StatefulWidget {
   const Demo({super.key});

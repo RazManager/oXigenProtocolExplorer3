@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import 'app_model.dart';
-import 'controllers.dart';
+import 'car_data.dart';
+import 'controller_data.dart';
+import 'global_commands.dart';
 import 'serial_port_demo.dart';
 import 'settings.dart';
 
@@ -11,28 +13,31 @@ final router = GoRouter(
   routes: <RouteBase>[
     GoRoute(
       path: '/',
-      builder: (BuildContext context, GoRouterState state) {
-        return const SettingsPage();
-      },
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const SettingsPage()),
     ),
     GoRoute(
-      path: '/controllers',
-      builder: (BuildContext context, GoRouterState state) {
-        return const ControllersPage();
-      },
+      path: '/global-commands',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const GlobalCommandsPage()),
+    ),
+    GoRoute(
+      path: '/controller-data',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const ControllerDataPage()),
+    ),
+    GoRoute(
+      path: '/car-data',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const CarDataPage()),
     ),
     GoRoute(
       path: '/demo',
-      builder: (BuildContext context, GoRouterState state) {
-        return const DemoPage();
-      },
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const DemoPage()),
     ),
   ],
 );
 
 abstract class PageBase extends StatefulWidget {
-  const PageBase({super.key, required this.body});
+  const PageBase({super.key, required this.title, required this.body});
 
+  final String title;
   final Widget body;
 }
 
@@ -57,10 +62,18 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
                     break;
 
                   case 1:
-                    context.go('/controllers');
+                    context.go('/global-commands');
                     break;
 
-                  case 2:
+                  case 3:
+                    context.go('/controller-data');
+                    break;
+
+                  case 4:
+                    context.go('/car-data');
+                    break;
+
+                  case 5:
                     context.go('/demo');
                     break;
 
@@ -76,9 +89,39 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
                   label: Text('Settings'),
                 ),
                 NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Global commands'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Controller/car commands'),
+                ),
+                NavigationRailDestination(
                   icon: Icon(Icons.speed_outlined),
                   selectedIcon: Icon(Icons.speed),
-                  label: Text('Controllers'),
+                  label: Text('Controller data'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Car data'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Lap times'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('Practice session'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.settings),
+                  selectedIcon: Icon(Icons.settings),
+                  label: Text('About'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.developer_mode),
@@ -90,7 +133,7 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
             Expanded(
               child: Scaffold(
                 appBar: AppBar(
-                  title: const Text('Settings'),
+                  title: Text(widget.title),
                 ),
                 body: Scrollbar(
                   controller: scrollController,
