@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'command_slider.dart';
 import 'oxigen_constants.dart';
 import 'app_model.dart';
 import 'page_base.dart';
+import 'race_state_button.dart';
 
 class GlobalCommandsPage extends PageBase {
   const GlobalCommandsPage({super.key}) : super(title: 'Global commands', body: const GlobalCommands());
@@ -25,45 +27,12 @@ class GlobalCommands extends StatelessWidget {
           'Race state *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        SegmentedButton<OxigenTxRaceState>(
-          segments: const [
-            ButtonSegment<OxigenTxRaceState>(value: OxigenTxRaceState.running, label: Text('Running')),
-            ButtonSegment<OxigenTxRaceState>(value: OxigenTxRaceState.paused, label: Text('Paused')),
-            ButtonSegment<OxigenTxRaceState>(value: OxigenTxRaceState.stopped, label: Text('Stopped')),
-            ButtonSegment<OxigenTxRaceState>(
-                value: OxigenTxRaceState.flaggedLcEnabled, label: Text('Flagged (LC enabled)')),
-            ButtonSegment<OxigenTxRaceState>(
-                value: OxigenTxRaceState.flaggedLcDisabled, label: Text('Flagged (LC disabled)')),
-          ],
-          emptySelectionAllowed: true,
-          selected: model.oxigenTxRaceState == null ? {} : {model.oxigenTxRaceState!},
-          onSelectionChanged: (selected) {
-            if (selected.isNotEmpty) {
-              model.oxigenTxRaceStateSet(selected.first);
-            }
-          },
-        ),
+        RaceStateButton(value: model.oxigenTxRaceState, setValue: model.oxigenTxRaceStateSet),
         const Text(
           'Maximum speed (TX byte 1) *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                min: 0,
-                max: 255,
-                divisions: 255,
-                value: model.oxigenMaximumSpeed == null ? 0 : model.oxigenMaximumSpeed!.toDouble(),
-                label: model.oxigenMaximumSpeed == null ? '?' : model.oxigenMaximumSpeed!.toString(),
-                onChanged: (value) {
-                  model.oxigenMaximumSpeedSet(value.round());
-                },
-              ),
-            ),
-            model.oxigenMaximumSpeed == null ? const Icon(Icons.question_mark) : const Icon(Icons.check)
-          ],
-        ),
+        CommandSlider(max: 255, value: model.oxigenMaximumSpeed, setValue: model.oxigenMaximumSpeedSet),
         const Text(
           'Maximum speed (global command)',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -166,31 +135,5 @@ class GlobalCommands extends StatelessWidget {
         ),
       ]);
     });
-  }
-}
-
-class CommandSlider extends StatelessWidget {
-  const CommandSlider({super.key, required this.max, this.value, required this.setValue});
-  final int max;
-  final int? value;
-  final Function(int) setValue;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Slider(
-            min: 0,
-            max: max.toDouble(),
-            divisions: max,
-            value: value == null ? 0 : value!.toDouble(),
-            label: value == null ? '?' : value!.toString(),
-            onChanged: (newValue) => setValue(newValue.round()),
-          ),
-        ),
-        value == null ? const Icon(Icons.question_mark) : const Icon(Icons.check)
-      ],
-    );
   }
 }

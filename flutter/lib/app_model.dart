@@ -54,8 +54,13 @@ class AppModel extends ChangeNotifier {
   OxigenTxPitlaneLapTrigger? oxigenTxPitlaneLapTrigger;
   OxigenTxRaceState? oxigenTxRaceState;
   int? oxigenMaximumSpeed;
+  int txDelay = 500;
+  int txTimeout = 1000;
+  Timer? txTimeoutTimer;
+  int controllerTimeout = 30;
   TxControllerCarPairState oxigenGlobalTxControllerCarPairState = TxControllerCarPairState();
   Queue<TxCommand> oxigenTxCommandQueue = Queue<TxCommand>();
+  final streamController = StreamController<SerialPortError>.broadcast();
 
   double? oxigenDongleFirmwareVersion;
   List<RxControllerCarPair?> rxControllerCarPairs = List<RxControllerCarPair?>.generate(20, (index) => null);
@@ -101,13 +106,16 @@ class AppModel extends ChangeNotifier {
     return serialPort != null &&
         !serialPort!.isOpen &&
         oxigenTxPitlaneLapCounting != null &&
-        (oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled || oxigenTxPitlaneLapTrigger != null);
+        (oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled || oxigenTxPitlaneLapTrigger != null) &&
+        oxigenTxRaceState != null &&
+        oxigenMaximumSpeed != null;
   }
 
   void serialPortOpen() {
     print(serialPort!.name);
     print('open');
-    if (!serialPort!.openReadWrite()) {
+    if (!serialPort!.openReadWrite() && SerialPort.lastError != null) {
+      streamController.add(SerialPort.lastError!);
       print(SerialPort.lastError);
       return;
     }
@@ -129,7 +137,8 @@ class AppModel extends ChangeNotifier {
       _serialPortReader = null;
     }
 
-    if (!serialPort!.close()) {
+    if (!serialPort!.close() && SerialPort.lastError != null) {
+      streamController.add(SerialPort.lastError!);
       print(SerialPort.lastError);
     }
     print(serialPort!.isOpen);
@@ -142,9 +151,7 @@ class AppModel extends ChangeNotifier {
 
   void _serialPortDongleCommandDongleFirmwareVersion() {
     var bytes = Uint8List.fromList([6, 6, 6, 6, 0, 0, 0]);
-    var i = serialPort!.write(bytes);
-    print(i);
-    print(serialPort!.bytesAvailable);
+    serialPort!.write(bytes);
   }
 
   void oxigenTxPitlaneLapCountingSet(OxigenTxPitlaneLapCounting value) {
@@ -164,6 +171,21 @@ class AppModel extends ChangeNotifier {
 
   void oxigenMaximumSpeedSet(int value) {
     oxigenMaximumSpeed = value;
+    notifyListeners();
+  }
+
+  void txDelaySet(int value) {
+    txDelay = value;
+    notifyListeners();
+  }
+
+  void txTimeoutSet(int value) {
+    txTimeout = value;
+    notifyListeners();
+  }
+
+  void controllerTimeoutSet(int value) {
+    controllerTimeout = value;
     notifyListeners();
   }
 
@@ -306,10 +328,11 @@ class AppModel extends ChangeNotifier {
       var bytes = Uint8List.fromList([byte0, oxigenMaximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
 
       serialPort!.write(bytes);
-      //print(i);
-      //print(serialPort!.bytesAvailable);
 
-      Timer(const Duration(milliseconds: 1000), () => _serialPortWriteLoop());
+      if (txTimeoutTimer != null) {
+        txTimeoutTimer!.cancel();
+      }
+      txTimeoutTimer = Timer(Duration(milliseconds: txTimeout), () => _serialPortWriteLoop());
     }
   }
 
@@ -436,6 +459,9 @@ class AppModel extends ChangeNotifier {
         } else {
           // error
         }
+
+        Timer(Duration(milliseconds: txDelay), () => _serialPortWriteLoop());
+
         notifyListeners();
       }
     } catch (e) {
