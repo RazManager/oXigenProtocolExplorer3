@@ -64,7 +64,7 @@ class Settings extends StatelessWidget {
                       value: OxigenTxPitlaneLapCounting.disabled, label: Text('Disabled')),
                 ],
                 emptySelectionAllowed: true,
-                selected: model.oxigenTxPitlaneLapCounting == null ? {} : {model.oxigenTxPitlaneLapCounting!},
+                selected: model.txPitlaneLapCounting == null ? {} : {model.txPitlaneLapCounting!},
                 onSelectionChanged: (selected) {
                   if (selected.isNotEmpty) {
                     model.oxigenTxPitlaneLapCountingSet(selected.first);
@@ -79,9 +79,9 @@ class Settings extends StatelessWidget {
                       value: OxigenTxPitlaneLapTrigger.pitlaneExit, label: Text('Pitlane exit')),
                 ],
                 emptySelectionAllowed: true,
-                selected: model.oxigenTxPitlaneLapTrigger == null ? {} : {model.oxigenTxPitlaneLapTrigger!},
-                onSelectionChanged: (model.oxigenTxPitlaneLapCounting == null ||
-                        model.oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled)
+                selected: model.txPitlaneLapTrigger == null ? {} : {model.txPitlaneLapTrigger!},
+                onSelectionChanged: (model.txPitlaneLapCounting == null ||
+                        model.txPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled)
                     ? null
                     : (selected) {
                         if (selected.isNotEmpty) {
@@ -96,12 +96,12 @@ class Settings extends StatelessWidget {
           'Race state *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        RaceStateButton(value: model.oxigenTxRaceState, setValue: model.oxigenTxRaceStateSet),
+        RaceStateButton(value: model.txRaceState, setValue: model.oxigenTxRaceStateSet),
         const Text(
           'Maximum speed (TX byte 1) *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        CommandSlider(max: 255, value: model.oxigenMaximumSpeed, setValue: model.oxigenMaximumSpeedSet),
+        CommandSlider(max: 255, id: 0, value: model.maximumSpeed, setValue: model.oxigenMaximumSpeedSet),
         Table(
           // columnWidths: const <int, TableColumnWidth>{
           //   0: IntrinsicColumnWidth(),
@@ -132,7 +132,7 @@ class Settings extends StatelessWidget {
             TableRow(children: [
               Center(child: Text(model.txDelay.toString())),
               Center(child: Text(model.txTimeout.toString())),
-              Center(child: Text(model.controllerTimeout.toString())),
+              Center(child: Text(model.rxControllerTimeout.toString())),
             ]),
             TableRow(children: [
               Slider(
@@ -161,7 +161,7 @@ class Settings extends StatelessWidget {
                 min: 10,
                 max: 60,
                 divisions: 50,
-                value: model.controllerTimeout.toDouble(),
+                value: model.rxControllerTimeout.toDouble(),
                 onChanged: (newValue) {
                   model.controllerTimeoutSet(newValue.round());
                 },
@@ -169,6 +169,18 @@ class Settings extends StatelessWidget {
             ])
           ],
         ),
+
+        //   // BarChartData(
+        //   //     backgroundColor: Colors.red,
+        //   //     barGroups: model.carControllerPairs.entries
+        //   //         .where((x) => x.value.rx.refreshRate != null)
+        //   //         .map((kv) => BarChartGroupData(
+        //   //             x: kv.key, barRods: [BarChartRodData(toY: kv.value.rx.refreshRate!.toDouble())]))
+        //   //         .toList()
+        //   //     // read about it in the BarChartData section
+        //   //     ),
+        //   //swapAnimationDuration: Duration(milliseconds: 150), // Optional
+        //   //swapAnimationCurve: Curves.linear, // Optional
       ]);
     });
   }

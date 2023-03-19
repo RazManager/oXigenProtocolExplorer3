@@ -20,38 +20,44 @@ class CarData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(builder: (context, model, child) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-            columnSpacing: 10,
-            columns: const [
-              DataColumn(label: Text('Id'), numeric: true),
-              DataColumn(label: Text('On track')),
-              DataColumn(label: Text('Pitlane')),
-              DataColumn(label: Text('Car reset')),
-              DataColumn(label: Text('Link reset')),
-              DataColumn(label: Text('Firmware'), numeric: true),
-            ],
-            rows: model.rxControllerCarPairs
-                .where((x) => x != null)
-                .map((x) => DataRow(cells: [
-                      DataCell(Text(x!.id.toString())),
-                      DataCell(x.carOnTrack == OxigenRxCarOnTrack.carIsOnTheTrack
-                          ? const Icon(Icons.no_crash)
-                          : const Icon(Icons.car_crash, color: Colors.red)),
-                      DataCell(x.carPitLane == OxigenRxCarPitLane.carIsInThePitLane
-                          ? const Icon(Icons.car_repair)
-                          : const Text('')),
-                      DataCell(Badge(
-                          label: x.carResetCount == 0 ? null : Text(x.carResetCount.toString()),
-                          child: const Icon(Icons.restart_alt))),
-                      DataCell(Badge(
-                          label: x.controllerCarLinkCount == 0 ? null : Text(x.controllerCarLinkCount.toString()),
-                          child: const Icon(Icons.link))),
-                      DataCell(Text(x.carFirmwareVersion.toString())),
-                    ]))
-                .toList()),
-      );
+      var carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
+      carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
+      if (carControllerPairs.isEmpty) {
+        return const Center(child: Text('There are no connected controllers'));
+      } else {
+        return FittedBox(
+          child: DataTable(
+              columnSpacing: 10,
+              columns: const [
+                DataColumn(label: Text('Id'), numeric: true),
+                DataColumn(label: Text('On track')),
+                DataColumn(label: Text('Pitlane')),
+                DataColumn(label: Text('Car reset')),
+                DataColumn(label: Text('Link reset')),
+                DataColumn(label: Text('Firmware'), numeric: true),
+              ],
+              rows: carControllerPairs
+                  .map((x) => DataRow(cells: [
+                        DataCell(Text(x.key.toString())),
+                        DataCell(x.value.rx.carOnTrack == OxigenRxCarOnTrack.carIsOnTheTrack
+                            ? const Icon(Icons.no_crash)
+                            : const Icon(Icons.car_crash, color: Colors.red)),
+                        DataCell(x.value.rx.carPitLane == OxigenRxCarPitLane.carIsInThePitLane
+                            ? const Icon(Icons.car_repair)
+                            : const Text('')),
+                        DataCell(Badge(
+                            label: x.value.rx.carResetCount == 0 ? null : Text(x.value.rx.carResetCount.toString()),
+                            child: const Icon(Icons.restart_alt))),
+                        DataCell(Badge(
+                            label: x.value.rx.controllerCarLinkCount == 0
+                                ? null
+                                : Text(x.value.rx.controllerCarLinkCount.toString()),
+                            child: const Icon(Icons.link))),
+                        DataCell(Text(x.value.rx.carFirmwareVersion.toString())),
+                      ]))
+                  .toList()),
+        );
+      }
     });
   }
 }

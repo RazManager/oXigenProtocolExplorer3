@@ -7,7 +7,7 @@ import 'package:flutter_libserialport/flutter_libserialport.dart';
 
 import 'oxigen_constants.dart';
 
-class TxControllerCarPairState {
+class TxCarControllerPair {
   int? maximumSpeed;
   int? minimumSpeed;
   int? pitlaneSpeed;
@@ -23,9 +23,7 @@ class TxCommand {
   final OxigenTxCommand command;
 }
 
-class RxControllerCarPair {
-  RxControllerCarPair({required this.id});
-  final int id;
+class RxCarControllerPair {
   late OxigenRxCarReset carReset;
   int carResetCount = 0;
   late OxigenRxControllerCarLink controllerCarLink;
@@ -43,6 +41,13 @@ class RxControllerCarPair {
   late int raceTimer;
   double? controllerFirmwareVersion;
   double? carFirmwareVersion;
+  DateTime? updatedAt;
+  int? refreshRate = 0;
+}
+
+class CarControllerPair {
+  TxCarControllerPair tx = TxCarControllerPair();
+  RxCarControllerPair rx = RxCarControllerPair();
 }
 
 class AppModel extends ChangeNotifier {
@@ -50,20 +55,19 @@ class AppModel extends ChangeNotifier {
   SerialPort? serialPort;
   SerialPortReader? _serialPortReader;
   List<String> availablePortNames = [];
-  OxigenTxPitlaneLapCounting? oxigenTxPitlaneLapCounting;
-  OxigenTxPitlaneLapTrigger? oxigenTxPitlaneLapTrigger;
-  OxigenTxRaceState? oxigenTxRaceState;
-  int? oxigenMaximumSpeed;
+  OxigenTxPitlaneLapCounting? txPitlaneLapCounting;
+  OxigenTxPitlaneLapTrigger? txPitlaneLapTrigger;
+  OxigenTxRaceState? txRaceState;
+  int? maximumSpeed;
   int txDelay = 500;
   int txTimeout = 1000;
   Timer? txTimeoutTimer;
-  int controllerTimeout = 30;
-  TxControllerCarPairState oxigenGlobalTxControllerCarPairState = TxControllerCarPairState();
-  Queue<TxCommand> oxigenTxCommandQueue = Queue<TxCommand>();
+  int rxControllerTimeout = 30;
+  Queue<TxCommand> txCommandQueue = Queue<TxCommand>();
   final streamController = StreamController<SerialPortError>.broadcast();
 
   double? oxigenDongleFirmwareVersion;
-  List<RxControllerCarPair?> rxControllerCarPairs = List<RxControllerCarPair?>.generate(20, (index) => null);
+  Map<int, CarControllerPair> carControllerPairs = {0: CarControllerPair()};
 
   void availablePortsRefresh(bool shouldNotify) {
     serialPortClear(shouldNotify);
@@ -105,10 +109,10 @@ class AppModel extends ChangeNotifier {
   bool serialPortCanOpen() {
     return serialPort != null &&
         !serialPort!.isOpen &&
-        oxigenTxPitlaneLapCounting != null &&
-        (oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled || oxigenTxPitlaneLapTrigger != null) &&
-        oxigenTxRaceState != null &&
-        oxigenMaximumSpeed != null;
+        txPitlaneLapCounting != null &&
+        (txPitlaneLapCounting == OxigenTxPitlaneLapCounting.disabled || txPitlaneLapTrigger != null) &&
+        txRaceState != null &&
+        maximumSpeed != null;
   }
 
   void serialPortOpen() {
@@ -155,22 +159,22 @@ class AppModel extends ChangeNotifier {
   }
 
   void oxigenTxPitlaneLapCountingSet(OxigenTxPitlaneLapCounting value) {
-    oxigenTxPitlaneLapCounting = value;
+    txPitlaneLapCounting = value;
     notifyListeners();
   }
 
   void oxigenPitlaneLapTriggerModeSet(OxigenTxPitlaneLapTrigger value) {
-    oxigenTxPitlaneLapTrigger = value;
+    txPitlaneLapTrigger = value;
     notifyListeners();
   }
 
   void oxigenTxRaceStateSet(OxigenTxRaceState value) {
-    oxigenTxRaceState = value;
+    txRaceState = value;
     notifyListeners();
   }
 
-  void oxigenMaximumSpeedSet(int value) {
-    oxigenMaximumSpeed = value;
+  void oxigenMaximumSpeedSet(int id, int value) {
+    maximumSpeed = value;
     notifyListeners();
   }
 
@@ -185,56 +189,64 @@ class AppModel extends ChangeNotifier {
   }
 
   void controllerTimeoutSet(int value) {
-    controllerTimeout = value;
+    rxControllerTimeout = value;
     notifyListeners();
   }
 
-  void oxigenGlobalTxMaximumSpeedSet(int value) {
-    oxigenGlobalTxControllerCarPairState.maximumSpeed = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.maximumSpeed));
+  void oxigenTxMaximumSpeedSet(int id, int value) {
+    carControllerPairs[id]!.tx.maximumSpeed = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.maximumSpeed));
     notifyListeners();
   }
 
-  void oxigenGlobalTxMinimumSpeedSet(int value) {
-    oxigenGlobalTxControllerCarPairState.minimumSpeed = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.minimumSpeed));
+  void oxigenTxMinimumSpeedSet(int id, int value) {
+    carControllerPairs[id]!.tx.minimumSpeed = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.minimumSpeed));
     notifyListeners();
   }
 
-  void oxigenGlobalTxPitlaneSpeedSet(int value) {
-    oxigenGlobalTxControllerCarPairState.pitlaneSpeed = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.pitlaneSpeed));
+  void oxigenTxPitlaneSpeedSet(int id, int value) {
+    carControllerPairs[id]!.tx.pitlaneSpeed = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.pitlaneSpeed));
     notifyListeners();
   }
 
-  void oxigenGlobalTxMaximumBrakeSet(int value) {
-    oxigenGlobalTxControllerCarPairState.maximumBrake = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.maximumBrake));
+  void oxigenTxMaximumBrakeSet(int id, int value) {
+    carControllerPairs[id]!.tx.maximumBrake = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.maximumBrake));
     notifyListeners();
   }
 
-  void oxigenGlobalTxForceLcUpSet(bool value) {
-    oxigenGlobalTxControllerCarPairState.forceLcUp = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.forceLcUp));
+  void oxigenTxForceLcUpSet(int id, bool value) {
+    carControllerPairs[id]!.tx.forceLcUp = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.forceLcUp));
     notifyListeners();
   }
 
-  void oxigenGlobalTxForceLcDownSet(bool value) {
-    oxigenGlobalTxControllerCarPairState.forceLcDown = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.forceLcDown));
+  void oxigenTxForceLcDownSet(int id, bool value) {
+    carControllerPairs[id]!.tx.forceLcDown = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.forceLcDown));
     notifyListeners();
   }
 
-  void oxigenGlobalTxTransmissionPowerSet(OxigenTxTransmissionPower value) {
-    oxigenGlobalTxControllerCarPairState.transmissionPower = value;
-    oxigenTxCommandQueue.addLast(TxCommand(id: 0, command: OxigenTxCommand.transmissionPower));
+  void oxigenTxTransmissionPowerSet(int id, OxigenTxTransmissionPower value) {
+    carControllerPairs[id]!.tx.transmissionPower = value;
+    txCommandQueue.addLast(TxCommand(id: id, command: OxigenTxCommand.transmissionPower));
     notifyListeners();
   }
 
   void _serialPortWriteLoop() {
-    print('_serialPortWriteLoop start');
+    var disconnectedControllers = carControllerPairs.entries.where((x) =>
+        x.key != 0 &&
+        x.value.rx.updatedAt != null &&
+        x.value.rx.updatedAt!.isBefore(DateTime.now().add(Duration(milliseconds: -rxControllerTimeout * 1000))));
+    if (disconnectedControllers.isNotEmpty) {
+      carControllerPairs.remove(disconnectedControllers.first.key);
+      notifyListeners();
+    }
+
     int byte0;
-    switch (oxigenTxRaceState) {
+    switch (txRaceState) {
       case null:
         return;
       case OxigenTxRaceState.running:
@@ -254,7 +266,7 @@ class AppModel extends ChangeNotifier {
         break;
     }
 
-    switch (oxigenTxPitlaneLapCounting) {
+    switch (txPitlaneLapCounting) {
       case null:
         return;
       case OxigenTxPitlaneLapCounting.enabled:
@@ -264,8 +276,8 @@ class AppModel extends ChangeNotifier {
         break;
     }
 
-    if (oxigenTxPitlaneLapCounting != null && oxigenTxPitlaneLapCounting == OxigenTxPitlaneLapCounting.enabled) {
-      switch (oxigenTxPitlaneLapTrigger) {
+    if (txPitlaneLapCounting != null && txPitlaneLapCounting == OxigenTxPitlaneLapCounting.enabled) {
+      switch (txPitlaneLapTrigger) {
         case null:
           return;
         case OxigenTxPitlaneLapTrigger.pitlaneEntry:
@@ -276,7 +288,7 @@ class AppModel extends ChangeNotifier {
       }
     }
 
-    if (oxigenMaximumSpeed == null) {
+    if (maximumSpeed == null) {
       return;
     }
 
@@ -285,47 +297,49 @@ class AppModel extends ChangeNotifier {
       var byte3 = 0;
       var byte4 = 0;
 
-      if (oxigenTxCommandQueue.isNotEmpty) {
-        var txCommand = oxigenTxCommandQueue.first;
-        oxigenTxCommandQueue.removeFirst();
+      if (txCommandQueue.isNotEmpty) {
+        var txCommand = txCommandQueue.first;
+        txCommandQueue.removeFirst();
         id = txCommand.id;
+        var txCarControllerPair = carControllerPairs[id]!.tx;
+
         switch (txCommand.command) {
           case OxigenTxCommand.maximumSpeed:
             byte3 = 2;
-            byte4 = oxigenGlobalTxControllerCarPairState.maximumSpeed ?? 0;
+            byte4 = txCarControllerPair.maximumSpeed ?? 0;
             break;
           case OxigenTxCommand.minimumSpeed:
           case OxigenTxCommand.forceLcUp:
           case OxigenTxCommand.forceLcDown:
             byte3 = 3;
-            byte4 = (oxigenGlobalTxControllerCarPairState.minimumSpeed ?? 0) &
-                (oxigenGlobalTxControllerCarPairState.forceLcDown == null
+            byte4 = (txCarControllerPair.minimumSpeed ?? 0) &
+                (txCarControllerPair.forceLcDown == null
                     ? 0
-                    : oxigenGlobalTxControllerCarPairState.forceLcDown!
+                    : txCarControllerPair.forceLcDown!
                         ? 64
                         : 0) &
-                (oxigenGlobalTxControllerCarPairState.forceLcUp == null
+                (txCarControllerPair.forceLcUp == null
                     ? 0
-                    : oxigenGlobalTxControllerCarPairState.forceLcUp!
+                    : txCarControllerPair.forceLcUp!
                         ? 128
                         : 0);
             break;
           case OxigenTxCommand.pitlaneSpeed:
             byte3 = 1;
-            byte4 = oxigenGlobalTxControllerCarPairState.pitlaneSpeed ?? 0;
+            byte4 = txCarControllerPair.pitlaneSpeed ?? 0;
             break;
           case OxigenTxCommand.maximumBrake:
             byte3 = 5;
-            byte4 = oxigenGlobalTxControllerCarPairState.maximumBrake ?? 0;
+            byte4 = txCarControllerPair.maximumBrake ?? 0;
             break;
           case OxigenTxCommand.transmissionPower:
             byte3 = 4;
-            byte4 = oxigenGlobalTxControllerCarPairState.transmissionPower?.index ?? 0;
+            byte4 = txCarControllerPair.transmissionPower?.index ?? 0;
             break;
         }
       }
 
-      var bytes = Uint8List.fromList([byte0, oxigenMaximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
+      var bytes = Uint8List.fromList([byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
 
       serialPort!.write(bytes);
 
@@ -349,82 +363,83 @@ class AppModel extends ChangeNotifier {
           do {
             var id = buffer[1 + offset];
 
-            RxControllerCarPair rxControllerCarPair;
+            CarControllerPair carControllerPair;
             OxigenRxCarReset? oldCarReset;
             OxigenRxControllerCarLink? oldControllerCarLink;
-            if (rxControllerCarPairs[id] == null) {
-              rxControllerCarPair = RxControllerCarPair(id: id);
+            if (!carControllerPairs.containsKey(id)) {
+              carControllerPair = CarControllerPair();
+              carControllerPairs[id] = carControllerPair;
             } else {
-              rxControllerCarPair = rxControllerCarPairs[id]!;
-              oldCarReset = rxControllerCarPair.carReset;
-              oldControllerCarLink = rxControllerCarPair.controllerCarLink;
+              carControllerPair = carControllerPairs[id]!;
+              oldCarReset = carControllerPair.rx.carReset;
+              oldControllerCarLink = carControllerPair.rx.controllerCarLink;
             }
 
             if (buffer[0 + offset] & (pow(2, 0) as int) == 0) {
-              rxControllerCarPair.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
+              carControllerPair.rx.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
             } else {
-              rxControllerCarPair.carReset = OxigenRxCarReset.carHasJustBeenPoweredUpOrReset;
+              carControllerPair.rx.carReset = OxigenRxCarReset.carHasJustBeenPoweredUpOrReset;
             }
-            if (rxControllerCarPair.carReset == OxigenRxCarReset.carHasJustBeenPoweredUpOrReset &&
+            if (carControllerPair.rx.carReset == OxigenRxCarReset.carHasJustBeenPoweredUpOrReset &&
                 oldCarReset != null &&
-                oldCarReset != rxControllerCarPair.carReset) {
-              rxControllerCarPair.carResetCount++;
+                oldCarReset != carControllerPair.rx.carReset) {
+              carControllerPair.rx.carResetCount++;
             }
 
             if (buffer[0 + offset] & (pow(2, 1) as int) == 0) {
-              rxControllerCarPair.controllerCarLink =
+              carControllerPair.rx.controllerCarLink =
                   OxigenRxControllerCarLink.controllerLinkWithItsPairedCarHasntChanged;
             } else {
-              rxControllerCarPair.controllerCarLink =
+              carControllerPair.rx.controllerCarLink =
                   OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar;
             }
-            if (rxControllerCarPair.controllerCarLink ==
+            if (carControllerPair.rx.controllerCarLink ==
                     OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar &&
                 oldControllerCarLink != null &&
-                oldControllerCarLink != rxControllerCarPair.controllerCarLink) {
-              rxControllerCarPair.controllerCarLinkCount++;
+                oldControllerCarLink != carControllerPair.rx.controllerCarLink) {
+              carControllerPair.rx.controllerCarLinkCount++;
             }
 
             if (buffer[0 + offset] & (pow(2, 2) as int) == 0) {
-              rxControllerCarPair.controllerBatteryLevel = OxigenRxControllerBatteryLevel.ok;
+              carControllerPair.rx.controllerBatteryLevel = OxigenRxControllerBatteryLevel.ok;
             } else {
-              rxControllerCarPair.controllerBatteryLevel = OxigenRxControllerBatteryLevel.low;
+              carControllerPair.rx.controllerBatteryLevel = OxigenRxControllerBatteryLevel.low;
             }
 
             if (buffer[0 + offset] & (pow(2, 3) as int) == 0) {
-              rxControllerCarPair.trackCall = OxigenRxTrackCall.no;
+              carControllerPair.rx.trackCall = OxigenRxTrackCall.no;
             } else {
-              rxControllerCarPair.trackCall = OxigenRxTrackCall.yes;
+              carControllerPair.rx.trackCall = OxigenRxTrackCall.yes;
             }
 
             if (buffer[0 + offset] & (pow(2, 5) as int) == 0) {
-              rxControllerCarPair.arrowUpButton = OxigenRxArrowUpButton.buttonNotPressed;
+              carControllerPair.rx.arrowUpButton = OxigenRxArrowUpButton.buttonNotPressed;
             } else {
-              rxControllerCarPair.arrowUpButton = OxigenRxArrowUpButton.buttonPressed;
+              carControllerPair.rx.arrowUpButton = OxigenRxArrowUpButton.buttonPressed;
             }
 
             if (buffer[0 + offset] & (pow(2, 6) as int) == 0) {
-              rxControllerCarPair.arrowDownButton = OxigenRxArrowDownButton.buttonNotPressed;
+              carControllerPair.rx.arrowDownButton = OxigenRxArrowDownButton.buttonNotPressed;
             } else {
-              rxControllerCarPair.arrowDownButton = OxigenRxArrowDownButton.buttonPressed;
+              carControllerPair.rx.arrowDownButton = OxigenRxArrowDownButton.buttonPressed;
             }
 
             if (buffer[7 + offset] & (pow(2, 7) as int) == 0) {
-              rxControllerCarPair.carOnTrack = OxigenRxCarOnTrack.carIsNotOnTheTrack;
+              carControllerPair.rx.carOnTrack = OxigenRxCarOnTrack.carIsNotOnTheTrack;
             } else {
-              rxControllerCarPair.carOnTrack = OxigenRxCarOnTrack.carIsOnTheTrack;
+              carControllerPair.rx.carOnTrack = OxigenRxCarOnTrack.carIsOnTheTrack;
             }
 
             if (buffer[8 + offset] & (pow(2, 6) as int) == 0) {
-              rxControllerCarPair.carPitLane = OxigenRxCarPitLane.carIsNotInThePitLane;
+              carControllerPair.rx.carPitLane = OxigenRxCarPitLane.carIsNotInThePitLane;
             } else {
-              rxControllerCarPair.carPitLane = OxigenRxCarPitLane.carIsInThePitLane;
+              carControllerPair.rx.carPitLane = OxigenRxCarPitLane.carIsInThePitLane;
             }
 
-            rxControllerCarPair.triggerMeanValue = buffer[7 + offset] & 0x7F;
-            rxControllerCarPair.lastLapTime = buffer[2 + offset] * 256 + buffer[3 + offset];
-            rxControllerCarPair.lastLapTimeDelay = buffer[4 + offset];
-            rxControllerCarPair.totalLaps = buffer[6 + offset] * 256 + buffer[5 + offset];
+            carControllerPair.rx.triggerMeanValue = buffer[7 + offset] & 0x7F;
+            carControllerPair.rx.lastLapTime = buffer[2 + offset] * 256 + buffer[3 + offset];
+            carControllerPair.rx.lastLapTimeDelay = buffer[4 + offset];
+            carControllerPair.rx.totalLaps = buffer[6 + offset] * 256 + buffer[5 + offset];
 
             OxigenRxDeviceSoftwareReleaseOwner deviceSoftwareReleaseOwner;
             if (buffer[8 + offset] & (pow(2, 7) as int) == 0) {
@@ -440,19 +455,24 @@ class AppModel extends ChangeNotifier {
 
             switch (deviceSoftwareReleaseOwner) {
               case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:
-                rxControllerCarPair.controllerFirmwareVersion = softwareRelease;
+                carControllerPair.rx.controllerFirmwareVersion = softwareRelease;
                 break;
               case OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease:
-                rxControllerCarPair.carFirmwareVersion = softwareRelease;
+                carControllerPair.rx.carFirmwareVersion = softwareRelease;
                 break;
             }
 
-            rxControllerCarPair.raceTimer = buffer[9 + offset] * 16777216 +
+            carControllerPair.rx.raceTimer = buffer[9 + offset] * 16777216 +
                 buffer[10 + offset] * 65536 +
                 buffer[11 + offset] * 256 +
                 buffer[12 + offset];
 
-            rxControllerCarPairs[id] = rxControllerCarPair;
+            var now = DateTime.now();
+            if (carControllerPair.rx.updatedAt != null) {
+              carControllerPair.rx.refreshRate =
+                  now.millisecondsSinceEpoch - carControllerPair.rx.updatedAt!.millisecondsSinceEpoch;
+            }
+            carControllerPair.rx.updatedAt = now;
 
             offset = offset + 13;
           } while (offset < buffer.length - 1);

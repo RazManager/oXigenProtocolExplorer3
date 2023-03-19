@@ -7,6 +7,7 @@ import 'car_controller_commands.dart';
 import 'car_data.dart';
 import 'controller_data.dart';
 import 'global_commands.dart';
+import 'lap_data.dart';
 import 'serial_port_demo.dart';
 import 'settings.dart';
 
@@ -31,6 +32,10 @@ final router = GoRouter(
     GoRoute(
       path: '/car-data',
       pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const CarDataPage()),
+    ),
+    GoRoute(
+      path: '/lap-data',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const LapDataPage()),
     ),
     GoRoute(
       path: '/demo',
@@ -72,6 +77,10 @@ class AppNavigationRail extends StatelessWidget {
             break;
 
           case 5:
+            context.go('/lap-data');
+            break;
+
+          case 5:
             context.go('/demo');
             break;
 
@@ -109,7 +118,7 @@ class AppNavigationRail extends StatelessWidget {
         NavigationRailDestination(
           icon: Icon(Icons.settings),
           selectedIcon: Icon(Icons.settings),
-          label: Text('Lap times'),
+          label: Text('Lap data'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.settings),
@@ -153,32 +162,26 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, boxConstraints) {
-      if (boxConstraints.maxWidth > 600) {
-        return Row(
-          children: [
-            const AppNavigationRail(),
-            Expanded(
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(widget.title),
-                ),
-                body: Scrollbar(
-                  controller: scrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    child: Padding(padding: const EdgeInsets.all(16.0), child: widget.body),
-                  ),
-                ),
-                bottomNavigationBar: widget.bottomNavigationBar,
+    return Row(
+      children: [
+        const AppNavigationRail(),
+        Expanded(
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(widget.title),
+            ),
+            body: Scrollbar(
+              controller: scrollController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Padding(padding: const EdgeInsets.all(16.0), child: widget.body),
               ),
             ),
-          ],
-        );
-      } else {
-        return const Text('small...');
-      }
-    });
+            bottomNavigationBar: widget.bottomNavigationBar,
+          ),
+        ),
+      ],
+    );
   }
 }

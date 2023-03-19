@@ -27,44 +27,48 @@ class GlobalCommands extends StatelessWidget {
           'Race state *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        RaceStateButton(value: model.oxigenTxRaceState, setValue: model.oxigenTxRaceStateSet),
+        RaceStateButton(value: model.txRaceState, setValue: model.oxigenTxRaceStateSet),
         const Text(
           'Maximum speed (TX byte 1) *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        CommandSlider(max: 255, value: model.oxigenMaximumSpeed, setValue: model.oxigenMaximumSpeedSet),
+        CommandSlider(max: 255, id: 0, value: model.maximumSpeed, setValue: model.oxigenMaximumSpeedSet),
         const Text(
           'Maximum speed (global command)',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         CommandSlider(
             max: 255,
-            value: model.oxigenGlobalTxControllerCarPairState.maximumSpeed,
-            setValue: model.oxigenGlobalTxMaximumSpeedSet),
+            id: 0,
+            value: model.carControllerPairs[0]!.tx.maximumSpeed,
+            setValue: model.oxigenTxMaximumSpeedSet),
         const Text(
           'Minimum speed',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         CommandSlider(
             max: 63,
-            value: model.oxigenGlobalTxControllerCarPairState.minimumSpeed,
-            setValue: model.oxigenGlobalTxMinimumSpeedSet),
+            id: 0,
+            value: model.carControllerPairs[0]!.tx.minimumSpeed,
+            setValue: model.oxigenTxMinimumSpeedSet),
         const Text(
           'Pitlane speed',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         CommandSlider(
             max: 255,
-            value: model.oxigenGlobalTxControllerCarPairState.pitlaneSpeed,
-            setValue: model.oxigenGlobalTxPitlaneSpeedSet),
+            id: 0,
+            value: model.carControllerPairs[0]!.tx.pitlaneSpeed,
+            setValue: model.oxigenTxPitlaneSpeedSet),
         const Text(
           'Maximum brake',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         CommandSlider(
             max: 255,
-            value: model.oxigenGlobalTxControllerCarPairState.maximumBrake,
-            setValue: model.oxigenGlobalTxMaximumBrakeSet),
+            id: 0,
+            value: model.carControllerPairs[0]!.tx.maximumBrake,
+            setValue: model.oxigenTxMaximumBrakeSet),
         Table(
           columnWidths: const <int, TableColumnWidth>{
             0: IntrinsicColumnWidth(),
@@ -82,13 +86,13 @@ class GlobalCommands extends StatelessWidget {
                   if (states.contains(MaterialState.selected)) {
                     return const Icon(Icons.arrow_upward);
                   }
-                  if (model.oxigenGlobalTxControllerCarPairState.forceLcUp != null) {
+                  if (model.carControllerPairs[0]!.tx.forceLcUp != null) {
                     return const Icon(Icons.close);
                   }
                   return const Icon(Icons.question_mark);
                 }),
-                value: model.oxigenGlobalTxControllerCarPairState.forceLcUp ?? false,
-                onChanged: (value) => model.oxigenGlobalTxForceLcUpSet(value),
+                value: model.carControllerPairs[0]!.tx.forceLcUp ?? false,
+                onChanged: (value) => model.oxigenTxForceLcUpSet(0, value),
               ),
             ]),
             TableRow(children: [
@@ -101,13 +105,13 @@ class GlobalCommands extends StatelessWidget {
                   if (states.contains(MaterialState.selected)) {
                     return const Icon(Icons.arrow_downward);
                   }
-                  if (model.oxigenGlobalTxControllerCarPairState.forceLcDown != null) {
+                  if (model.carControllerPairs[0]!.tx.forceLcDown != null) {
                     return const Icon(Icons.close);
                   }
                   return const Icon(Icons.question_mark);
                 }),
-                value: model.oxigenGlobalTxControllerCarPairState.forceLcDown ?? false,
-                onChanged: (value) => model.oxigenGlobalTxForceLcDownSet(value),
+                value: model.carControllerPairs[0]!.tx.forceLcDown ?? false,
+                onChanged: (value) => model.oxigenTxForceLcDownSet(0, value),
               ),
             ])
           ],
@@ -124,12 +128,12 @@ class GlobalCommands extends StatelessWidget {
             ButtonSegment<OxigenTxTransmissionPower>(value: OxigenTxTransmissionPower.dBm0, label: Text('0 dBm')),
           ],
           emptySelectionAllowed: true,
-          selected: model.oxigenGlobalTxControllerCarPairState.transmissionPower == null
+          selected: model.carControllerPairs[0]!.tx.transmissionPower == null
               ? {}
-              : {model.oxigenGlobalTxControllerCarPairState.transmissionPower!},
+              : {model.carControllerPairs[0]!.tx.transmissionPower!},
           onSelectionChanged: (selected) {
             if (selected.isNotEmpty) {
-              model.oxigenGlobalTxTransmissionPowerSet(selected.first);
+              model.oxigenTxTransmissionPowerSet(0, selected.first);
             }
           },
         ),
