@@ -9,8 +9,7 @@ import 'page_base.dart';
 import 'race_state_button.dart';
 
 class SettingsPage extends PageBase {
-  const SettingsPage({super.key})
-      : super(title: 'Settings', body: const Settings(), bottomNavigationBar: const SettingsBottomAppBar());
+  const SettingsPage({super.key}) : super(title: 'Settings', body: const Settings());
 
   @override
   State<PageBase> createState() => _SettingsPageState();
@@ -23,8 +22,6 @@ class Settings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var model = context.read<AppModel>();
-    model.availablePortsRefresh(false);
     return Consumer<AppModel>(builder: (context, model, child) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         DropdownButton<String>(
@@ -102,98 +99,7 @@ class Settings extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         CommandSlider(max: 255, id: 0, value: model.maximumSpeed, setValue: model.oxigenMaximumSpeedSet),
-        Table(
-          // columnWidths: const <int, TableColumnWidth>{
-          //   0: IntrinsicColumnWidth(),
-          //   1: IntrinsicColumnWidth(),
-          //   2: IntrinsicColumnWidth(),
-          // },
-          children: [
-            const TableRow(children: [
-              Center(
-                child: Text(
-                  'Transmit delay (ms) *',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Center(
-                child: Text(
-                  'Transmit timeout (ms) *',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Center(
-                child: Text(
-                  'Controller timeout (s) *',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ]),
-            TableRow(children: [
-              Center(child: Text(model.txDelay.toString())),
-              Center(child: Text(model.txTimeout.toString())),
-              Center(child: Text(model.rxControllerTimeout.toString())),
-            ]),
-            TableRow(children: [
-              Slider(
-                min: 0,
-                max: 2000,
-                divisions: 2000,
-                value: model.txDelay.toDouble(),
-                onChanged: (newValue) {
-                  if (newValue <= model.txTimeout) {
-                    model.txDelaySet(newValue.round());
-                  }
-                },
-              ),
-              Slider(
-                min: 0,
-                max: 2000,
-                divisions: 2000,
-                value: model.txTimeout.toDouble(),
-                onChanged: (newValue) {
-                  if (newValue >= model.txDelay) {
-                    model.txTimeoutSet(newValue.round());
-                  }
-                },
-              ),
-              Slider(
-                min: 10,
-                max: 60,
-                divisions: 50,
-                value: model.rxControllerTimeout.toDouble(),
-                onChanged: (newValue) {
-                  model.controllerTimeoutSet(newValue.round());
-                },
-              ),
-            ])
-          ],
-        ),
-
-        //   // BarChartData(
-        //   //     backgroundColor: Colors.red,
-        //   //     barGroups: model.carControllerPairs.entries
-        //   //         .where((x) => x.value.rx.refreshRate != null)
-        //   //         .map((kv) => BarChartGroupData(
-        //   //             x: kv.key, barRods: [BarChartRodData(toY: kv.value.rx.refreshRate!.toDouble())]))
-        //   //         .toList()
-        //   //     // read about it in the BarChartData section
-        //   //     ),
-        //   //swapAnimationDuration: Duration(milliseconds: 150), // Optional
-        //   //swapAnimationCurve: Curves.linear, // Optional
-      ]);
-    });
-  }
-}
-
-class SettingsBottomAppBar extends StatelessWidget {
-  const SettingsBottomAppBar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AppModel>(builder: (context, model, child) {
-      return BottomAppBar(
-        child: Row(
+        Row(
           children: [
             FilledButton.tonal(
                 onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen() : null,
@@ -202,8 +108,8 @@ class SettingsBottomAppBar extends StatelessWidget {
                 onPressed: (model.serialPortCanClose()) ? () => model.serialPortClose() : null,
                 child: const Text('Close')),
           ],
-        ),
-      );
+        )
+      ]);
     });
   }
 }

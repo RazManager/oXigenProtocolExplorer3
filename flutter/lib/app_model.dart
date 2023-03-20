@@ -35,14 +35,28 @@ class RxCarControllerPair {
   late OxigenRxCarOnTrack carOnTrack;
   late OxigenRxCarPitLane carPitLane;
   late int triggerMeanValue;
-  late int lastLapTime;
-  late int lastLapTimeDelay;
-  late int totalLaps;
-  late int raceTimer;
+  late int dongleRaceTimer;
+  late int dongleLapRaceTimer;
+  late int dongleLapTime;
+  late double dongleLapTimeSeconds;
+  late int dongleLapTimeDelay;
+  late int dongleLaps;
+  int? previousLapRaceTimer;
+  double? calculatedLapTimeSeconds;
+  int? calculatedLaps;
   double? controllerFirmwareVersion;
   double? carFirmwareVersion;
   DateTime? updatedAt;
   int? refreshRate = 0;
+  double? fastestLapTime;
+  Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
+}
+
+class PracticeSessionLap {
+  PracticeSessionLap({required this.lap, required this.lapTime});
+
+  late int lap;
+  late double lapTime;
 }
 
 class CarControllerPair {
@@ -51,6 +65,10 @@ class CarControllerPair {
 }
 
 class AppModel extends ChangeNotifier {
+  AppModel() {
+    availablePortsRefresh(false);
+  }
+
   int menuIndex = 0;
   SerialPort? serialPort;
   SerialPortReader? _serialPortReader;
@@ -68,6 +86,7 @@ class AppModel extends ChangeNotifier {
 
   double? oxigenDongleFirmwareVersion;
   Map<int, CarControllerPair> carControllerPairs = {0: CarControllerPair()};
+  Queue<int> refreshRateQueue = Queue<int>();
 
   void availablePortsRefresh(bool shouldNotify) {
     serialPortClear(shouldNotify);
@@ -169,6 +188,15 @@ class AppModel extends ChangeNotifier {
   }
 
   void oxigenTxRaceStateSet(OxigenTxRaceState value) {
+    if (txRaceState == OxigenTxRaceState.stopped && value == OxigenTxRaceState.running) {
+      for (var x in carControllerPairs.entries.where((kv) => kv.key != 0)) {
+        x.value.rx.previousLapRaceTimer = null;
+        x.value.rx.calculatedLapTimeSeconds = null;
+        x.value.rx.calculatedLaps = null;
+        x.value.rx.fastestLapTime = null;
+        x.value.rx.practiceSessionLaps = Queue<PracticeSessionLap>();
+      }
+    }
     txRaceState = value;
     notifyListeners();
   }
@@ -354,7 +382,7 @@ class AppModel extends ChangeNotifier {
     _serialPortReader = SerialPortReader(serialPort!);
     try {
       await for (var buffer in _serialPortReader!.stream.takeWhile((element) => element.isNotEmpty)) {
-        print('Got ${buffer.length} characters from stream');
+        //print('Got ${buffer.length} characters from stream');
 
         if (buffer.length == 5) {
           oxigenDongleFirmwareVersion = buffer[0] + buffer[1] / 100;
@@ -437,9 +465,9 @@ class AppModel extends ChangeNotifier {
             }
 
             carControllerPair.rx.triggerMeanValue = buffer[7 + offset] & 0x7F;
-            carControllerPair.rx.lastLapTime = buffer[2 + offset] * 256 + buffer[3 + offset];
-            carControllerPair.rx.lastLapTimeDelay = buffer[4 + offset];
-            carControllerPair.rx.totalLaps = buffer[6 + offset] * 256 + buffer[5 + offset];
+            carControllerPair.rx.dongleLapTime = buffer[2 + offset] * 256 + buffer[3 + offset];
+            carControllerPair.rx.dongleLapTimeDelay = buffer[4 + offset];
+            carControllerPair.rx.dongleLaps = buffer[6 + offset] * 256 + buffer[5 + offset];
 
             OxigenRxDeviceSoftwareReleaseOwner deviceSoftwareReleaseOwner;
             if (buffer[8 + offset] & (pow(2, 7) as int) == 0) {
@@ -450,8 +478,8 @@ class AppModel extends ChangeNotifier {
 
             var softwareRelease = (buffer[8 + offset] & 48) / 16 + (buffer[8 + offset] & 15) / 100;
 
-            print(buffer[8 + offset] & (pow(2, 7) as int));
-            print(buffer[8 + offset] & 15);
+            // print(buffer[8 + offset] & (pow(2, 7) as int));
+            // print(buffer[8 + offset] & 15);
 
             switch (deviceSoftwareReleaseOwner) {
               case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:
@@ -462,15 +490,55 @@ class AppModel extends ChangeNotifier {
                 break;
             }
 
-            carControllerPair.rx.raceTimer = buffer[9 + offset] * 16777216 +
+            carControllerPair.rx.dongleRaceTimer = buffer[9 + offset] * 16777216 +
                 buffer[10 + offset] * 65536 +
                 buffer[11 + offset] * 256 +
                 buffer[12 + offset];
+
+            carControllerPair.rx.dongleLapRaceTimer =
+                carControllerPair.rx.dongleRaceTimer - carControllerPair.rx.dongleLapTimeDelay;
+
+            carControllerPair.rx.dongleLapTimeSeconds = carControllerPair.rx.dongleLapTime / 99.25;
+
+            if (carControllerPair.rx.previousLapRaceTimer == null) {
+              if (carControllerPair.rx.dongleRaceTimer == 0) {
+                carControllerPair.rx.previousLapRaceTimer = 0;
+              }
+            } else if (carControllerPair.rx.dongleRaceTimer > 0) {
+              if (carControllerPair.rx.previousLapRaceTimer != carControllerPair.rx.dongleLapRaceTimer) {
+                if (carControllerPair.rx.calculatedLaps == null) {
+                  carControllerPair.rx.calculatedLaps = 0;
+                } else {
+                  carControllerPair.rx.calculatedLaps = carControllerPair.rx.calculatedLaps! + 1;
+                  if (carControllerPair.rx.previousLapRaceTimer != null) {
+                    carControllerPair.rx.calculatedLapTimeSeconds =
+                        (carControllerPair.rx.dongleLapRaceTimer - carControllerPair.rx.previousLapRaceTimer!) / 100.0;
+
+                    if (carControllerPair.rx.fastestLapTime == null ||
+                        carControllerPair.rx.fastestLapTime! > carControllerPair.rx.calculatedLapTimeSeconds!) {
+                      carControllerPair.rx.fastestLapTime = carControllerPair.rx.calculatedLapTimeSeconds!;
+                    }
+
+                    carControllerPair.rx.practiceSessionLaps.addFirst(PracticeSessionLap(
+                        lap: carControllerPair.rx.calculatedLaps!,
+                        lapTime: carControllerPair.rx.calculatedLapTimeSeconds!));
+                    if (carControllerPair.rx.practiceSessionLaps.length >= 6) {
+                      carControllerPair.rx.practiceSessionLaps.removeLast();
+                    }
+                  }
+                }
+                carControllerPair.rx.previousLapRaceTimer = carControllerPair.rx.dongleLapRaceTimer;
+              }
+            }
 
             var now = DateTime.now();
             if (carControllerPair.rx.updatedAt != null) {
               carControllerPair.rx.refreshRate =
                   now.millisecondsSinceEpoch - carControllerPair.rx.updatedAt!.millisecondsSinceEpoch;
+              refreshRateQueue.addLast(carControllerPair.rx.refreshRate!);
+              if (refreshRateQueue.length >= 100) {
+                refreshRateQueue.removeFirst();
+              }
             }
             carControllerPair.rx.updatedAt = now;
 

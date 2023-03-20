@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:oxigen_protocol_explorer_3/tx_rx_loop.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,6 +9,7 @@ import 'car_data.dart';
 import 'controller_data.dart';
 import 'global_commands.dart';
 import 'lap_data.dart';
+import 'practice_session.dart';
 import 'serial_port_demo.dart';
 import 'settings.dart';
 
@@ -16,6 +18,10 @@ final router = GoRouter(
     GoRoute(
       path: '/',
       pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const SettingsPage()),
+    ),
+    GoRoute(
+      path: '/tx-rx-loop',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const TxRxLoop()),
     ),
     GoRoute(
       path: '/global-commands',
@@ -36,6 +42,10 @@ final router = GoRouter(
     GoRoute(
       path: '/lap-data',
       pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const LapDataPage()),
+    ),
+    GoRoute(
+      path: '/practice-session',
+      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const PracticeSession()),
     ),
     GoRoute(
       path: '/demo',
@@ -61,26 +71,34 @@ class AppNavigationRail extends StatelessWidget {
             break;
 
           case 1:
-            context.go('/global-commands');
+            context.go('/tx-rx-loop');
             break;
 
           case 2:
-            context.go('/car-controller-commands');
+            context.go('/global-commands');
             break;
 
           case 3:
-            context.go('/controller-data');
+            context.go('/car-controller-commands');
             break;
 
           case 4:
+            context.go('/controller-data');
+            break;
+
+          case 5:
             context.go('/car-data');
             break;
 
-          case 5:
+          case 6:
             context.go('/lap-data');
             break;
 
-          case 5:
+          case 7:
+            context.go('/practice-session');
+            break;
+
+          case 8:
             context.go('/demo');
             break;
 
@@ -94,6 +112,11 @@ class AppNavigationRail extends StatelessWidget {
           icon: Icon(Icons.settings),
           selectedIcon: Icon(Icons.settings),
           label: Text('Settings'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings),
+          selectedIcon: Icon(Icons.settings),
+          label: Text('TX/RX loop settings'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.settings),
@@ -141,11 +164,10 @@ class AppNavigationRail extends StatelessWidget {
 }
 
 abstract class PageBase extends StatefulWidget {
-  const PageBase({super.key, required this.title, required this.body, this.bottomNavigationBar});
+  const PageBase({super.key, required this.title, required this.body});
 
   final String title;
   final Widget body;
-  final Widget? bottomNavigationBar;
 }
 
 abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase> {
@@ -178,7 +200,6 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
                 child: Padding(padding: const EdgeInsets.all(16.0), child: widget.body),
               ),
             ),
-            bottomNavigationBar: widget.bottomNavigationBar,
           ),
         ),
       ],
