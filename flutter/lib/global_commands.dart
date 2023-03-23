@@ -27,7 +27,9 @@ class GlobalCommands extends StatelessWidget {
           'Race state *',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 8),
         RaceStateButton(value: model.txRaceState, setValue: model.oxigenTxRaceStateSet),
+        const SizedBox(height: 16),
         const Text(
           'Maximum speed (TX byte 1) *',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -116,10 +118,12 @@ class GlobalCommands extends StatelessWidget {
             ])
           ],
         ),
+        const SizedBox(height: 16),
         const Text(
           'Transmission power',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 8),
         SegmentedButton<OxigenTxTransmissionPower>(
           segments: const [
             ButtonSegment<OxigenTxTransmissionPower>(value: OxigenTxTransmissionPower.dBm18, label: Text('-18 dBm')),

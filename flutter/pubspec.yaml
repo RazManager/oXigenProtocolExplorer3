@@ -1,5 +1,4 @@
 name: oxigen_protocol_explorer_3
-description: A new Flutter project.
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,11 +33,11 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.2
   provider: ^6.0.5
   flutter_libserialport: ^0.3.0
   go_router: ^6.2.0
   fl_chart: ^0.61.0
+  flutter_launcher_icons: ^0.12.0
 
 dev_dependencies:
   flutter_test:
@@ -78,7 +77,10 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  # fonts:
+  fonts:
+    - family: BungeeInline
+      fonts:
+        - asset: assets/fonts/BungeeInline-Regular.ttf
   #   - family: Schyler
   #     fonts:
   #       - asset: fonts/Schyler-Regular.ttf
@@ -92,3 +94,17 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+
+flutter_icons:
+  image_path: "assets/icons/logo.png"
+  android: true
+  ios: true
+  web:
+    generate: false
+  windows:
+    generate: true
+    image_path: "assets/icons/logo.png"
+  macos:
+    generate: true
+    image_path: "assets/icons/logo.png"

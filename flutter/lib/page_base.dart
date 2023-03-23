@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:oxigen_protocol_explorer_3/tx_rx_loop.dart';
 import 'package:provider/provider.dart';
@@ -62,6 +64,7 @@ class AppNavigationRail extends StatelessWidget {
     var model = context.read<AppModel>();
     return NavigationRail(
       selectedIndex: model.menuIndex,
+      useIndicator: true,
       labelType: NavigationRailLabelType.all,
       onDestinationSelected: (index) {
         model.menuIndex = index;
@@ -99,63 +102,92 @@ class AppNavigationRail extends StatelessWidget {
             break;
 
           case 8:
+            showAboutDialog(context: context, applicationName: "oXigen Protocol Explorer 3", children: [
+              Row(children: [
+                Table(columnWidths: const <int, TableColumnWidth>{
+                  0: IntrinsicColumnWidth(),
+                  1: IntrinsicColumnWidth(),
+                }, children: [
+                  TableRow(children: [
+                    const TableCell(child: Text('Operating system:  ')),
+                    TableCell(
+                        child: Text(Platform.isAndroid
+                            ? 'Android'
+                            : Platform.isFuchsia
+                                ? 'isFuchsia'
+                                : Platform.isIOS
+                                    ? 'iOS'
+                                    : Platform.isLinux
+                                        ? 'Linux'
+                                        : Platform.isMacOS
+                                            ? 'MacOS'
+                                            : Platform.isWindows
+                                                ? 'Windows'
+                                                : '?'))
+                  ]),
+                  TableRow(children: [
+                    const TableCell(child: Text('Operating system version:  ')),
+                    TableCell(child: Text(Platform.operatingSystemVersion))
+                  ]),
+                  TableRow(children: [
+                    const TableCell(child: Text('Dart runtime:  ')),
+                    TableCell(child: Text(Platform.version))
+                  ]),
+                ])
+              ])
+            ]);
+            break;
+
+          case 9:
             context.go('/demo');
             break;
 
           default:
         }
       },
-      //labelType: labelType,
-      leading: const Text('3 oXigen Protocol Explorer'),
+      leading: const Text(
+        '3',
+        style: TextStyle(fontFamily: 'BungeeInline', fontSize: 40),
+      ),
       destinations: const [
         NavigationRailDestination(
           icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
           label: Text('Settings'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
-          label: Text('TX/RX loop settings'),
+          icon: Icon(Icons.repeat),
+          label: Text('TX/RX loop'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
+          icon: Icon(Icons.tune),
           label: Text('Global commands'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
-          label: Text('Controller/car commands'),
+          icon: Icon(Icons.tune),
+          label: Text('Car/controller commands'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.speed_outlined),
-          selectedIcon: Icon(Icons.speed),
+          icon: Icon(Icons.speed),
           label: Text('Controller data'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
+          icon: Icon(Icons.drive_eta),
           label: Text('Car data'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
+          icon: Icon(Icons.timer),
           label: Text('Lap data'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
+          icon: Icon(Icons.sports_motorsports),
           label: Text('Practice session'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.settings),
-          selectedIcon: Icon(Icons.settings),
+          icon: Icon(Icons.info),
           label: Text('About'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.developer_mode),
-          selectedIcon: Icon(Icons.book),
           label: Text('Demo'),
         ),
       ],
