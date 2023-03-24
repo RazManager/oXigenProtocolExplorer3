@@ -22,7 +22,11 @@ class TxRxLoop extends StatelessWidget {
               body: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Consumer<AppModel>(builder: (context, model, child) {
-                  return Column(children: [
+                  var carControllerPairs = model.carControllerPairs.entries
+                      .where((x) => x.key != 0 && x.value.rx.refreshRate != null)
+                      .toList();
+                  carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Table(
                       children: [
                         const TableRow(children: [
@@ -85,18 +89,35 @@ class TxRxLoop extends StatelessWidget {
                         ])
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'RX buffer length',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                            width: 25,
+                            child:
+                                Align(alignment: Alignment.centerRight, child: Text(model.rxBufferLength.toString()))),
+                        const SizedBox(width: 10),
+                        Expanded(child: LinearProgressIndicator(value: model.rxBufferLength / 52)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     const Text(
                       'Car/controller RX refresh rate (ms)',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
+                    const SizedBox(height: 16),
                     Expanded(
                       child: BarChart(
                         BarChartData(
                             maxY: model.refreshRateQueue.isEmpty ? null : model.refreshRateQueue.reduce(max).toDouble(),
                             borderData: FlBorderData(show: false),
                             gridData: FlGridData(drawVerticalLine: false),
-                            barGroups: model.carControllerPairs.entries
-                                .where((x) => x.key != 0 && x.value.rx.refreshRate != null)
+                            barGroups: carControllerPairs
                                 .map((kv) => BarChartGroupData(x: kv.key, barRods: [
                                       BarChartRodData(toY: kv.value.rx.refreshRate!.toDouble(), color: Colors.blueGrey)
                                     ]))

@@ -81,6 +81,7 @@ class AppModel extends ChangeNotifier {
   int txTimeout = 1000;
   Timer? txTimeoutTimer;
   int rxControllerTimeout = 30;
+  int rxBufferLength = 0;
   Queue<TxCommand> txCommandQueue = Queue<TxCommand>();
   final streamController = StreamController<SerialPortError>.broadcast();
 
@@ -135,8 +136,6 @@ class AppModel extends ChangeNotifier {
   }
 
   void serialPortOpen() {
-    print(serialPort!.name);
-    print('open');
     if (!serialPort!.openReadWrite() && SerialPort.lastError != null) {
       streamController.add(SerialPort.lastError!);
       print(SerialPort.lastError);
@@ -153,8 +152,6 @@ class AppModel extends ChangeNotifier {
   }
 
   void serialPortClose() {
-    print(serialPort!.name);
-    print('close');
     if (_serialPortReader != null) {
       _serialPortReader!.close();
       _serialPortReader = null;
@@ -164,7 +161,6 @@ class AppModel extends ChangeNotifier {
       streamController.add(SerialPort.lastError!);
       print(SerialPort.lastError);
     }
-    print(serialPort!.isOpen);
     notifyListeners();
   }
 
@@ -381,8 +377,9 @@ class AppModel extends ChangeNotifier {
   Future<void> _serialPortReadStreamAsync() async {
     _serialPortReader = SerialPortReader(serialPort!);
     try {
-      await for (var buffer in _serialPortReader!.stream.takeWhile((element) => element.isNotEmpty)) {
+      await for (var buffer in _serialPortReader!.stream.takeWhile((buffer) => buffer.isNotEmpty)) {
         //print('Got ${buffer.length} characters from stream');
+        rxBufferLength = buffer.length;
 
         if (buffer.length == 5) {
           oxigenDongleFirmwareVersion = buffer[0] + buffer[1] / 100;
