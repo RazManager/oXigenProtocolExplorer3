@@ -44,7 +44,7 @@ class Settings extends StatelessWidget {
                 return result;
               }).toList(),
               onChanged: (value) => model.serialPortSet(value!, true)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Table(
             columnWidths: const <int, TableColumnWidth>{
               0: IntrinsicColumnWidth(),
@@ -127,7 +127,16 @@ class Settings extends StatelessWidget {
                   onPressed: (model.serialPortCanClose()) ? () => model.serialPortClose() : null,
                   child: const Text('Close')),
             ],
-          )
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'Dongle firmware',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(
+              height: 16,
+              child:
+                  Text(model.oxigenDongleFirmwareVersion == null ? '' : model.oxigenDongleFirmwareVersion!.toString())),
         ]);
       }
     });

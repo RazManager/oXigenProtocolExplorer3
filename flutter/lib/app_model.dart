@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
@@ -93,7 +94,20 @@ class AppModel extends ChangeNotifier {
     serialPortClear(shouldNotify);
     availablePortNames = SerialPort.availablePorts;
     if (availablePortNames.isNotEmpty) {
-      serialPortSet(availablePortNames.first, shouldNotify);
+      for (final address in availablePortNames) {
+        var port = SerialPort(address);
+        try {
+          if (port.vendorId != null && port.vendorId == 0x1FEE && port.productId != null && port.productId == 0x2) {
+            serialPortSet(address, false);
+            port.dispose();
+            break;
+          }
+          port.dispose();
+        } on SerialPortError {}
+        if (serialPort == null) {
+          serialPortSet(availablePortNames.first, false);
+        }
+      }
     }
     if (shouldNotify) {
       notifyListeners();
@@ -473,10 +487,8 @@ class AppModel extends ChangeNotifier {
               deviceSoftwareReleaseOwner = OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease;
             }
 
-            var softwareRelease = (buffer[8 + offset] & 48) / 16 + (buffer[8 + offset] & 15) / 100;
-
-            // print(buffer[8 + offset] & (pow(2, 7) as int));
-            // print(buffer[8 + offset] & 15);
+            var softwareRelease =
+                (buffer[8 + offset] & 48) / 16 + (buffer[0 + offset] & 16) / 100 + (buffer[8 + offset] & 15) / 100;
 
             switch (deviceSoftwareReleaseOwner) {
               case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:
@@ -541,8 +553,6 @@ class AppModel extends ChangeNotifier {
 
             offset = offset + 13;
           } while (offset < buffer.length - 1);
-        } else {
-          // error
         }
 
         Timer(Duration(milliseconds: txDelay), () => _serialPortWriteLoop());

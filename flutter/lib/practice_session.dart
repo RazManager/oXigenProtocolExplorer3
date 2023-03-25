@@ -1,8 +1,6 @@
 import 'dart:math';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:oxigen_protocol_explorer_3/page_base.dart';
 import 'package:provider/provider.dart';
 

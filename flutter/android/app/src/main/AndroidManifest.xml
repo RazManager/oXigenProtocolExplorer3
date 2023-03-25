@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.oxigen_protocol_explorer_3">
-   <application
+    <uses-feature android:name="android.hardware.usb.host" />
+    <application
         android:label="oxigen_protocol_explorer_3"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
