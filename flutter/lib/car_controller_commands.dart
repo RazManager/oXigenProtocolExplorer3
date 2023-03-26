@@ -14,8 +14,6 @@ class CarControllerCommands extends StatefulWidget {
 }
 
 class _CarControllerCommandsState extends State<CarControllerCommands> {
-  final scrollController = ScrollController();
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -53,10 +51,10 @@ class _CarControllerCommandsState extends State<CarControllerCommands> {
                     body: TabBarView(
                         children: carControllerPairs
                             .map((x) => Scrollbar(
-                                  controller: scrollController,
+                                  controller: x.value.rx.scrollController,
                                   thumbVisibility: true,
                                   child: SingleChildScrollView(
-                                    controller: scrollController,
+                                    controller: x.value.rx.scrollController,
                                     child: Padding(
                                       padding: const EdgeInsets.all(16.0),
                                       child: Column(
@@ -147,10 +145,12 @@ class _CarControllerCommandsState extends State<CarControllerCommands> {
                                               ])
                                             ],
                                           ),
+                                          const SizedBox(height: 16),
                                           const Text(
                                             'Transmission power',
                                             style: TextStyle(fontWeight: FontWeight.bold),
                                           ),
+                                          const SizedBox(height: 8),
                                           SegmentedButton<OxigenTxTransmissionPower>(
                                             segments: const [
                                               ButtonSegment<OxigenTxTransmissionPower>(

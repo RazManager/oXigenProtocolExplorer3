@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
@@ -51,6 +50,7 @@ class RxCarControllerPair {
   int? refreshRate = 0;
   double? fastestLapTime;
   Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
+  ScrollController scrollController = ScrollController();
 }
 
 class PracticeSessionLap {
