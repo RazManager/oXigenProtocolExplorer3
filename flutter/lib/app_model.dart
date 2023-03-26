@@ -338,6 +338,8 @@ class AppModel extends ChangeNotifier {
       if (txCommandQueue.isNotEmpty) {
         var txCommand = txCommandQueue.first;
         txCommandQueue.removeFirst();
+        txCommandQueue.removeWhere((x) => x.id == txCommand.id && x.command == txCommand.command);
+
         id = txCommand.id;
         var txCarControllerPair = carControllerPairs[id]!.tx;
 
@@ -350,12 +352,12 @@ class AppModel extends ChangeNotifier {
           case OxigenTxCommand.forceLcUp:
           case OxigenTxCommand.forceLcDown:
             byte3 = 3;
-            byte4 = (txCarControllerPair.minimumSpeed ?? 0) &
+            byte4 = (txCarControllerPair.minimumSpeed ?? 0) |
                 (txCarControllerPair.forceLcDown == null
                     ? 0
                     : txCarControllerPair.forceLcDown!
                         ? 64
-                        : 0) &
+                        : 0) |
                 (txCarControllerPair.forceLcUp == null
                     ? 0
                     : txCarControllerPair.forceLcUp!
@@ -378,8 +380,7 @@ class AppModel extends ChangeNotifier {
       }
 
       var bytes = Uint8List.fromList([byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
-
-      serialPort!.write(bytes);
+      serialPort!.write(bytes, timeout: 0);
 
       if (txTimeoutTimer != null) {
         txTimeoutTimer!.cancel();
