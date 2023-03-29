@@ -377,6 +377,10 @@ class AppModel extends ChangeNotifier {
             byte4 = txCarControllerPair.transmissionPower?.index ?? 0;
             break;
         }
+
+        if (id > 0) {
+          byte3 = byte3 | 0x80;
+        }
       }
 
       var bytes = Uint8List.fromList([byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
