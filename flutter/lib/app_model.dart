@@ -351,53 +351,56 @@ class AppModel extends ChangeNotifier {
         var byte3 = 0;
         var byte4 = 0;
 
-        if (txCommandQueue.isNotEmpty) {
-          var txCommand = txCommandQueue.first;
-          txCommandQueue.removeFirst();
-          id = txCommand.id;
-          var txCarControllerPair = carControllerPairs[id]!.tx;
+      if (txCommandQueue.isNotEmpty) {
+        var txCommand = txCommandQueue.first;
+        txCommandQueue.removeFirst();
+        txCommandQueue.removeWhere((x) => x.id == txCommand.id && x.command == txCommand.command);
 
-          switch (txCommand.command) {
-            case OxigenTxCommand.maximumSpeed:
-              byte3 = 2;
-              byte4 = txCarControllerPair.maximumSpeed ?? 0;
-              break;
-            case OxigenTxCommand.minimumSpeed:
-            case OxigenTxCommand.forceLcUp:
-            case OxigenTxCommand.forceLcDown:
-              byte3 = 3;
-              byte4 = (txCarControllerPair.minimumSpeed ?? 0) &
-                  (txCarControllerPair.forceLcDown == null
-                      ? 0
-                      : txCarControllerPair.forceLcDown!
-                          ? 64
-                          : 0) &
-                  (txCarControllerPair.forceLcUp == null
-                      ? 0
-                      : txCarControllerPair.forceLcUp!
-                          ? 128
-                          : 0);
-              break;
-            case OxigenTxCommand.pitlaneSpeed:
-              byte3 = 1;
-              byte4 = txCarControllerPair.pitlaneSpeed ?? 0;
-              break;
-            case OxigenTxCommand.maximumBrake:
-              byte3 = 5;
-              byte4 = txCarControllerPair.maximumBrake ?? 0;
-              break;
-            case OxigenTxCommand.transmissionPower:
-              byte3 = 4;
-              byte4 = txCarControllerPair.transmissionPower?.index ?? 0;
-              break;
-          }
+        id = txCommand.id;
+        var txCarControllerPair = carControllerPairs[id]!.tx;
+
+        switch (txCommand.command) {
+          case OxigenTxCommand.maximumSpeed:
+            byte3 = 2;
+            byte4 = txCarControllerPair.maximumSpeed ?? 0;
+            break;
+          case OxigenTxCommand.minimumSpeed:
+          case OxigenTxCommand.forceLcUp:
+          case OxigenTxCommand.forceLcDown:
+            byte3 = 3;
+            byte4 = (txCarControllerPair.minimumSpeed ?? 0) |
+                (txCarControllerPair.forceLcDown == null
+                    ? 0
+                    : txCarControllerPair.forceLcDown!
+                        ? 64
+                        : 0) |
+                (txCarControllerPair.forceLcUp == null
+                    ? 0
+                    : txCarControllerPair.forceLcUp!
+                        ? 128
+                        : 0);
+            break;
+          case OxigenTxCommand.pitlaneSpeed:
+            byte3 = 1;
+            byte4 = txCarControllerPair.pitlaneSpeed ?? 0;
+            break;
+          case OxigenTxCommand.maximumBrake:
+            byte3 = 5;
+            byte4 = txCarControllerPair.maximumBrake ?? 0;
+            break;
+          case OxigenTxCommand.transmissionPower:
+            byte3 = 4;
+            byte4 = txCarControllerPair.transmissionPower?.index ?? 0;
+            break;
         }
 
-        var bytes = Uint8List.fromList(
-            [byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
+        if (id > 0) {
+          byte3 = byte3 | 0x80;
+        }
+      }
 
-        // SerialPortError: Device not configured, errno = 6
-        serialPort!.write(bytes);
+      var bytes = Uint8List.fromList([byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
+      serialPort!.write(bytes, timeout: 0);
 
         if (txTimeoutTimer != null) {
           txTimeoutTimer!.cancel();
