@@ -223,9 +223,9 @@ abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<AppModel>().streamController.stream.listen((serialPortError) {
+    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(serialPortError.message), duration: const Duration(seconds: 10)));
+          .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
     });
   }
 
