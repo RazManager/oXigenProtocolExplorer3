@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -219,14 +220,23 @@ abstract class PageBase extends StatefulWidget {
 
 abstract class PageBaseState<TPageBase extends PageBase> extends State<TPageBase> {
   final scrollController = ScrollController();
+  StreamSubscription<String>? exceptionStreamSubscription;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
+    exceptionStreamSubscription = context.read<AppModel>().exceptionStreamController.stream.listen((message) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
     });
+  }
+
+  @override
+  void dispose() async {
+    super.dispose();
+    if (exceptionStreamSubscription != null) {
+      await exceptionStreamSubscription!.cancel();
+    }
   }
 
   @override

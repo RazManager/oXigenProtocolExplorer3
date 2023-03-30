@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
@@ -15,13 +16,23 @@ class TxRxLoop extends StatefulWidget {
 }
 
 class _TxRxLoopState extends State<TxRxLoop> {
+  StreamSubscription<String>? exceptionStreamSubscription;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
+    exceptionStreamSubscription = context.read<AppModel>().exceptionStreamController.stream.listen((message) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
     });
+  }
+
+  @override
+  void dispose() async {
+    super.dispose();
+    if (exceptionStreamSubscription != null) {
+      await exceptionStreamSubscription!.cancel();
+    }
   }
 
   @override

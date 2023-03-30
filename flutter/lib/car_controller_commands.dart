@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,13 +16,23 @@ class CarControllerCommands extends StatefulWidget {
 }
 
 class _CarControllerCommandsState extends State<CarControllerCommands> {
+  StreamSubscription<String>? exceptionStreamSubscription;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
+    exceptionStreamSubscription = context.read<AppModel>().exceptionStreamController.stream.listen((message) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
     });
+  }
+
+  @override
+  void dispose() async {
+    super.dispose();
+    if (exceptionStreamSubscription != null) {
+      await exceptionStreamSubscription!.cancel();
+    }
   }
 
   @override
