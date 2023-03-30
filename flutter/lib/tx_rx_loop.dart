@@ -7,8 +7,22 @@ import 'package:provider/provider.dart';
 
 import 'app_model.dart';
 
-class TxRxLoop extends StatelessWidget {
+class TxRxLoop extends StatefulWidget {
   const TxRxLoop({super.key});
+
+  @override
+  State<TxRxLoop> createState() => _TxRxLoopState();
+}
+
+class _TxRxLoopState extends State<TxRxLoop> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

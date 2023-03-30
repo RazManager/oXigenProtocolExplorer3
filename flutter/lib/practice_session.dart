@@ -7,8 +7,22 @@ import 'package:provider/provider.dart';
 import 'app_model.dart';
 import 'race_state_button.dart';
 
-class PracticeSession extends StatelessWidget {
+class PracticeSession extends StatefulWidget {
   const PracticeSession({super.key});
+
+  @override
+  State<PracticeSession> createState() => _PracticeSessionState();
+}
+
+class _PracticeSessionState extends State<PracticeSession> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    context.read<AppModel>().exceptionStreamController.stream.listen((message) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message), duration: const Duration(seconds: 10)));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
