@@ -121,7 +121,7 @@ class Settings extends StatelessWidget {
           Row(
             children: [
               FilledButton.tonal(
-                  onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen() : null,
+                  onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen(true) : null,
                   child: const Text('Open')),
               FilledButton.tonal(
                   onPressed: (model.serialPortCanClose()) ? () => model.serialPortClose() : null,
