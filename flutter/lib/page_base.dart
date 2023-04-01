@@ -13,7 +13,6 @@ import 'controller_data.dart';
 import 'global_commands.dart';
 import 'lap_data.dart';
 import 'practice_session.dart';
-import 'serial_port_demo.dart';
 import 'settings.dart';
 
 final router = GoRouter(
@@ -49,10 +48,6 @@ final router = GoRouter(
     GoRoute(
       path: '/practice-session',
       pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const PracticeSession()),
-    ),
-    GoRoute(
-      path: '/demo',
-      pageBuilder: (context, state) => NoTransitionPage<void>(key: state.pageKey, child: const DemoPage()),
     ),
   ],
 );
@@ -148,11 +143,6 @@ class AppNavigationRail extends StatelessWidget {
                             ])
                           ]);
                       break;
-
-                    case 9:
-                      context.go('/demo');
-                      break;
-
                     default:
                   }
                 },
@@ -196,10 +186,6 @@ class AppNavigationRail extends StatelessWidget {
                   NavigationRailDestination(
                     icon: Icon(Icons.info),
                     label: Text('About'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.developer_mode),
-                    label: Text('Demo'),
                   ),
                 ],
               ),
