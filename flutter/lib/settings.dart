@@ -35,8 +35,8 @@ class Settings extends StatelessWidget {
           DropdownButton<String>(
               value: model.serialPort?.name,
               items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
-                var port = SerialPort(x);
-                var result = DropdownMenuItem<String>(
+                final port = SerialPort(x);
+                final result = DropdownMenuItem<String>(
                   value: x,
                   child: Text(port.description!),
                 );

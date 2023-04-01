@@ -108,6 +108,7 @@ namespace oXigenProtocolExplorer3
         {
             try
             {
+                var now = DateTime.Now;
                 var buffer = new byte[_serialPort.ReadBufferSize];
                 var bytesRead = _serialPort.Read(buffer, 0, _serialPort.BytesToRead);
                 Console.WriteLine($"{bytesRead} bytes received.");
@@ -293,7 +294,6 @@ namespace oXigenProtocolExplorer3
                             }
                         }
 
-                        var now = DateTime.Now;
                         if (rxCarControllerPair.UpdatedAt.HasValue)
                         {
                             rxCarControllerPair.RefreshRate = now - rxCarControllerPair.UpdatedAt;

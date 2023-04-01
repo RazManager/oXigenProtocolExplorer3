@@ -62,7 +62,7 @@ class AppNavigationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var model = context.read<AppModel>();
+    final model = context.read<AppModel>();
     return LayoutBuilder(
       builder: (context, constraint) {
         return SingleChildScrollView(

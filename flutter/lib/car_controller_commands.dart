@@ -42,7 +42,7 @@ class _CarControllerCommandsState extends State<CarControllerCommands> {
         const AppNavigationRail(),
         Expanded(
           child: Consumer<AppModel>(builder: (context, model, child) {
-            var carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
+            final carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
             carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
             if (carControllerPairs.isEmpty) {
               return Scaffold(

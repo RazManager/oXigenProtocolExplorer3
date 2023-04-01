@@ -47,13 +47,14 @@ class _PracticeSessionState extends State<PracticeSession> {
           body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Consumer<AppModel>(builder: (context, model, child) {
-              var carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
+              final carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
               carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
               if (carControllerPairs.isEmpty) {
                 return const Center(child: Text('There are no connected controllers'));
               } else {
                 return LayoutBuilder(builder: (context, constraints) {
-                  var fontSize = min(constraints.maxHeight / 20, constraints.maxWidth / carControllerPairs.length / 10);
+                  final fontSize =
+                      min(constraints.maxHeight / 20, constraints.maxWidth / carControllerPairs.length / 10);
                   return Column(
                     children: [
                       RaceStateButton(value: model.txRaceState, setValue: model.oxigenTxRaceStateSet),
