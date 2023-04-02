@@ -54,11 +54,35 @@ class _PracticeSessionState extends State<PracticeSession> {
               } else {
                 return LayoutBuilder(builder: (context, constraints) {
                   final fontSize =
-                      min(constraints.maxHeight / 20, constraints.maxWidth / carControllerPairs.length / 10);
+                      min(constraints.maxHeight / 23, constraints.maxWidth / carControllerPairs.length / 10);
+                  final dongleLapRaceTimerMax =
+                      carControllerPairs.map((kv) => kv.value.rx.dongleLapRaceTimer).reduce(max);
                   return Column(
                     children: [
                       RaceStateButton(value: model.txRaceState, setValue: model.oxigenTxRaceStateSet),
                       const SizedBox(height: 16),
+                      Table(
+                        children: [
+                          TableRow(children: [
+                            Center(
+                              child: Text(
+                                timerFormat(dongleLapRaceTimerMax, 100),
+                                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Center(
+                              child: Text(
+                                timerFormat(model.stopwatch.elapsedMilliseconds, 1000),
+                                style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
+                              ),
+                            )
+                          ]),
+                          const TableRow(children: [
+                            Center(child: Text('Dongle race timer')),
+                            Center(child: Text('Computer race timer'))
+                          ])
+                        ],
+                      ),
                       Table(
                         children: [
                           TableRow(
@@ -155,5 +179,13 @@ class _PracticeSessionState extends State<PracticeSession> {
         ),
       )
     ]);
+  }
+
+  String timerFormat(int value, int secondsFactor) {
+    if (value / secondsFactor < 3600) {
+      return '${value / secondsFactor ~/ 60}:${((value / secondsFactor) % 60).toInt().toString().padLeft(2, '0')}';
+    } else {
+      return '${value / secondsFactor ~/ 3600}:${((value / secondsFactor / 60) % 60).toInt().toString().padLeft(2, '0')}:${((value / secondsFactor) % 60).toInt().toString().padLeft(2, '0')}';
+    }
   }
 }

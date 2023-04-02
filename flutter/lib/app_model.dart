@@ -48,7 +48,8 @@ class RxCarControllerPair {
   double? controllerFirmwareVersion;
   double? carFirmwareVersion;
   DateTime? updatedAt;
-  int? refreshRate = 0;
+  int? refreshRate;
+  Queue<CarControllerTxRefreshRate> txRefreshRates = Queue<CarControllerTxRefreshRate>();
   double? fastestLapTime;
   Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
   ScrollController scrollController = ScrollController();
@@ -64,6 +65,13 @@ class PracticeSessionLap {
 class CarControllerPair {
   TxCarControllerPair tx = TxCarControllerPair();
   RxCarControllerPair rx = RxCarControllerPair();
+}
+
+class CarControllerTxRefreshRate {
+  CarControllerTxRefreshRate({required this.txOffset, required this.refreshRate});
+
+  final int txOffset;
+  final int refreshRate;
 }
 
 class AppModel extends ChangeNotifier {
@@ -82,7 +90,8 @@ class AppModel extends ChangeNotifier {
   int? maximumSpeed;
   int txDelay = 500;
   int txTimeout = 1000;
-  Timer? txTimeoutTimer;
+  Timer? _txTimer;
+  Timer? _txTimeoutTimer;
   int rxControllerTimeout = 30;
   int rxBufferLength = 0;
   Queue<TxCommand> txCommandQueue = Queue<TxCommand>();
@@ -90,8 +99,9 @@ class AppModel extends ChangeNotifier {
 
   double? oxigenDongleFirmwareVersion;
   Map<int, CarControllerPair> carControllerPairs = {0: CarControllerPair()};
-  Queue<int> refreshRateQueue = Queue<int>();
+  Queue<int> refreshRatesQueue = Queue<int>();
   Uint8List? _unusedBuffer;
+  Stopwatch stopwatch = Stopwatch();
 
   void availablePortsRefresh(bool shouldNotify) {
     _serialPortClear(shouldNotify);
@@ -132,8 +142,6 @@ class AppModel extends ChangeNotifier {
           exceptionStreamController.add(SerialPort.lastError!.message);
         }
       }
-      serialPort!.dispose();
-      serialPort = null;
     }
     if (shouldNotify) {
       notifyListeners();
@@ -214,7 +222,20 @@ class AppModel extends ChangeNotifier {
         x.value.rx.fastestLapTime = null;
         x.value.rx.practiceSessionLaps = Queue<PracticeSessionLap>();
       }
+      stopwatch.reset();
     }
+    switch (value) {
+      case OxigenTxRaceState.running:
+      case OxigenTxRaceState.flaggedLcEnabled:
+      case OxigenTxRaceState.flaggedLcDisabled:
+        stopwatch.start();
+        break;
+      case OxigenTxRaceState.paused:
+      case OxigenTxRaceState.stopped:
+        stopwatch.stop();
+        break;
+    }
+
     txRaceState = value;
     notifyListeners();
   }
@@ -392,13 +413,18 @@ class AppModel extends ChangeNotifier {
           }
         }
 
+        if (_txTimer != null) {
+          _txTimer!.cancel();
+          _txTimer = null;
+        }
+
         final bytes = Uint8List.fromList([byte0, maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
         serialPort!.write(bytes, timeout: 0);
 
-        if (txTimeoutTimer != null) {
-          txTimeoutTimer!.cancel();
+        if (_txTimeoutTimer != null) {
+          _txTimeoutTimer!.cancel();
         }
-        txTimeoutTimer = Timer(Duration(milliseconds: txTimeout), () => _serialPortWriteLoop());
+        _txTimeoutTimer = Timer(Duration(milliseconds: txTimeout), () => _serialPortWriteLoop());
       }
     } on SerialPortError catch (e) {
       print('_serialPortReadStreamAsync SerialPortError error: ${e.message}');
@@ -438,7 +464,11 @@ class AppModel extends ChangeNotifier {
           }
         }
 
-        Timer(Duration(milliseconds: txDelay), () => _serialPortWriteLoop());
+        if (_txTimer != null) {
+          return;
+        }
+
+        _txTimer = Timer(Duration(milliseconds: txDelay), () => _serialPortWriteLoop());
 
         notifyListeners();
       } on SerialPortError catch (e) {
@@ -469,15 +499,21 @@ class AppModel extends ChangeNotifier {
           carControllerPair: carControllerPair, buffer: Uint8List.view(buffer.buffer, offset, 13), now: now);
 
       if (carControllerPairs[id]!.rx.refreshRate != null) {
-        refreshRateQueue.addLast(carControllerPairs[id]!.rx.refreshRate!);
-        if (refreshRateQueue.length >= 100) {
-          refreshRateQueue.removeFirst();
+        carControllerPairs[id]!.rx.txRefreshRates.addLast(CarControllerTxRefreshRate(
+            txOffset: now.millisecondsSinceEpoch, refreshRate: carControllerPairs[id]!.rx.refreshRate!));
+        if (carControllerPairs[id]!.rx.txRefreshRates.length >= 20) {
+          carControllerPairs[id]!.rx.txRefreshRates.removeFirst();
+        }
+
+        refreshRatesQueue.addLast(carControllerPairs[id]!.rx.refreshRate!);
+        if (refreshRatesQueue.length >= 100) {
+          refreshRatesQueue.removeFirst();
         }
       }
 
       offset = offset + 13;
     } while (offset < buffer.length - 1);
-    //print(DateTime.now().millisecondsSinceEpoch - now.millisecondsSinceEpoch);
+    //print(DateTime.now().microsecondsSinceEpoch - now.microsecondsSinceEpoch);
   }
 
   Future<CarControllerPair> _processCarControllerBufferAsync(
