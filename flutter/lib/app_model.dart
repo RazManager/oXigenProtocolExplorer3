@@ -41,7 +41,7 @@ class RxCarControllerPair {
   late int dongleLapTime;
   late double dongleLapTimeSeconds;
   late int dongleLapTimeDelay;
-  late int dongleLaps;
+  int dongleLaps = 0;
   int? previousLapRaceTimer;
   double? calculatedLapTimeSeconds;
   int? calculatedLaps;
@@ -520,6 +520,7 @@ class AppModel extends ChangeNotifier {
       {required CarControllerPair carControllerPair, required Uint8List buffer, required DateTime now}) async {
     final oldCarReset = carControllerPair.rx.carReset;
     final oldControllerCarLink = carControllerPair.rx.controllerCarLink;
+    final oldDongleLaps = carControllerPair.rx.dongleLaps;
 
     if (buffer[0] & (pow(2, 0) as int) == 0) {
       carControllerPair.rx.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
@@ -613,7 +614,8 @@ class AppModel extends ChangeNotifier {
         carControllerPair.rx.previousLapRaceTimer = 0;
       }
     } else if (carControllerPair.rx.dongleRaceTimer > 0) {
-      if (carControllerPair.rx.previousLapRaceTimer != carControllerPair.rx.dongleLapRaceTimer) {
+      if (oldDongleLaps != carControllerPair.rx.dongleLaps) {
+        // New lap
         if (carControllerPair.rx.calculatedLaps == null) {
           carControllerPair.rx.calculatedLaps = 0;
         } else {
