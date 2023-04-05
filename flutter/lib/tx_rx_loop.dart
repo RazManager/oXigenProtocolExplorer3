@@ -77,9 +77,7 @@ class _TxRxLoopState extends State<TxRxLoop> {
           body: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Consumer<AppModel>(builder: (context, model, child) {
-              final carControllerPairs =
-                  model.carControllerPairs.entries.where((x) => x.key != 0 && x.value.rx.refreshRate != null).toList();
-              carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
+              final carControllerPairs = model.carControllerPairs();
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Table(
                   children: [

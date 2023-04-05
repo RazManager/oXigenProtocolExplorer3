@@ -1,0 +1,635 @@
+import 'dart:async';
+import 'dart:collection';
+import 'dart:isolate';
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:flutter_libserialport/flutter_libserialport.dart';
+
+import 'oxigen_constants.dart';
+
+class TxCarControllerPair {
+  int? maximumSpeed;
+  int? minimumSpeed;
+  int? pitlaneSpeed;
+  int? maximumBrake;
+  bool? forceLcUp;
+  bool? forceLcDown;
+  OxigenTxTransmissionPower? transmissionPower;
+}
+
+class RxCarControllerPair {
+  OxigenRxCarReset carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
+  int carResetCount = 0;
+  OxigenRxControllerCarLink controllerCarLink = OxigenRxControllerCarLink.controllerLinkWithItsPairedCarHasntChanged;
+  int controllerCarLinkCount = 0;
+  late OxigenRxControllerBatteryLevel controllerBatteryLevel;
+  late OxigenRxTrackCall trackCall;
+  late OxigenRxArrowUpButton arrowUpButton;
+  late OxigenRxArrowDownButton arrowDownButton;
+  late OxigenRxCarOnTrack carOnTrack;
+  late OxigenRxCarPitLane carPitLane;
+  late int triggerMeanValue;
+  late int dongleRaceTimer;
+  late int dongleLapRaceTimer;
+  late int dongleLapTime;
+  late double dongleLapTimeSeconds;
+  late int dongleLapTimeDelay;
+  int dongleLaps = 0;
+  int? previousLapRaceTimer;
+  double? calculatedLapTimeSeconds;
+  int? calculatedLaps;
+  double? controllerFirmwareVersion;
+  double? carFirmwareVersion;
+  DateTime? updatedAt;
+  int? refreshRate;
+  Queue<CarControllerTxRefreshRate> txRefreshRates = Queue<CarControllerTxRefreshRate>();
+  double? fastestLapTime;
+  Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
+}
+
+class PracticeSessionLap {
+  PracticeSessionLap({required this.lap, required this.lapTime});
+
+  late int lap;
+  late double lapTime;
+}
+
+class TxCommand {
+  TxCommand({required this.id, required this.command, required this.value});
+
+  final int id;
+  final OxigenTxCommand command;
+  final dynamic value;
+}
+
+class CarControllerTxRefreshRate {
+  CarControllerTxRefreshRate({required this.txOffset, required this.refreshRate});
+
+  final int txOffset;
+  final int refreshRate;
+}
+
+class MaximumSpeedRequest {
+  MaximumSpeedRequest({required this.maximumSpeed});
+
+  final int maximumSpeed;
+}
+
+class TxDelayRequest {
+  TxDelayRequest({required this.txDelay});
+
+  final int txDelay;
+}
+
+class TxTimeoutRequest {
+  TxTimeoutRequest({required this.txTimeout});
+
+  final int txTimeout;
+}
+
+class SerialPortRefreshRequest {}
+
+class SerialPortSetRequest {
+  SerialPortSetRequest({required this.name});
+  final String name;
+}
+
+class SerialPortOpenRequest {}
+
+class SerialPortCloseRequest {}
+
+class SerialPortResponse {
+  SerialPortResponse(SerialPort? serialPort) {
+    if (serialPort == null) {
+      name = null;
+      isOpen = false;
+    } else {
+      name = serialPort.name;
+      isOpen = serialPort.isOpen;
+    }
+  }
+
+  String? name;
+  bool isOpen = false;
+}
+
+class DongleFirmwareVersionResponse {
+  DongleFirmwareVersionResponse({required this.dongleFirmwareVersion});
+
+  final double dongleFirmwareVersion;
+}
+
+class RxResponse {
+  RxResponse({required this.rxBufferLength});
+
+  final int rxBufferLength;
+  Map<int, RxCarControllerPair> updatedRxCarControllerPairs = {};
+}
+
+class CarControllerPair {
+  TxCarControllerPair tx = TxCarControllerPair();
+  RxCarControllerPair rx = RxCarControllerPair();
+}
+
+class SerialPortWorker {
+  late SendPort _callbackPort;
+  SerialPort? _serialPort;
+  SerialPortReader? _serialPortReader;
+  StreamSubscription<Uint8List>? _serialPortStreamSubscription;
+
+  OxigenTxPitlaneLapCounting? _txPitlaneLapCounting;
+  OxigenTxPitlaneLapTrigger? _txPitlaneLapTrigger;
+  OxigenTxRaceState? _txRaceState;
+  int? _maximumSpeed;
+  int _txDelay = 500;
+  int _txTimeout = 1000;
+  Timer? _txTimer;
+  Timer? _txTimeoutTimer;
+  Uint8List? _unusedBuffer;
+  final Queue<TxCommand> _txCommandQueue = Queue<TxCommand>();
+
+  final Map<int, CarControllerPair> _carControllerPairs = List.generate(21, (index) => CarControllerPair()).asMap();
+
+  Future<void> startAsync(SendPort callbackPort) async {
+    print('Spawned isolate started.');
+
+    _callbackPort = callbackPort;
+    final commandPort = ReceivePort();
+    callbackPort.send(commandPort.sendPort);
+    _serialPortRefresh();
+
+    //Timer.periodic(const Duration(seconds: 10), (timer) => callbackPort.send(timer.tick));
+
+    await for (final message in commandPort) {
+      if (message is SerialPortRefreshRequest) {
+        _serialPortRefresh();
+      } else if (message is SerialPortSetRequest) {
+        _serialPortSet(message.name);
+      } else if (message is SerialPortOpenRequest) {
+        _serialPortOpen(true);
+      } else if (message is SerialPortCloseRequest) {
+        _serialPortClose();
+      } else if (message is OxigenTxPitlaneLapCounting) {
+        _txPitlaneLapCounting = message;
+      } else if (message is OxigenTxPitlaneLapTrigger) {
+        _txPitlaneLapTrigger = message;
+      } else if (message is OxigenTxRaceState) {
+        if (_txRaceState == OxigenTxRaceState.stopped && message == OxigenTxRaceState.running) {
+          for (final x in _carControllerPairs.entries) {
+            x.value.rx.previousLapRaceTimer = null;
+            x.value.rx.calculatedLapTimeSeconds = null;
+            x.value.rx.calculatedLaps = null;
+            x.value.rx.fastestLapTime = null;
+            x.value.rx.practiceSessionLaps = Queue<PracticeSessionLap>();
+          }
+        }
+        _txRaceState = message;
+      } else if (message is MaximumSpeedRequest) {
+        _maximumSpeed = message.maximumSpeed;
+      } else if (message is TxDelayRequest) {
+        _txDelay = message.txDelay;
+      } else if (message is TxTimeoutRequest) {
+        _txTimeout = message.txTimeout;
+      } else if (message is TxCommand) {
+        switch (message.command) {
+          case OxigenTxCommand.maximumSpeed:
+            _carControllerPairs[message.id]!.tx.maximumSpeed = message.value;
+            break;
+          case OxigenTxCommand.minimumSpeed:
+            _carControllerPairs[message.id]!.tx.minimumSpeed = message.value;
+            break;
+          case OxigenTxCommand.pitlaneSpeed:
+            _carControllerPairs[message.id]!.tx.pitlaneSpeed = message.value;
+            break;
+          case OxigenTxCommand.maximumBrake:
+            _carControllerPairs[message.id]!.tx.maximumBrake = message.value;
+            break;
+          case OxigenTxCommand.forceLcUp:
+            _carControllerPairs[message.id]!.tx.forceLcUp = message.value;
+            break;
+          case OxigenTxCommand.forceLcDown:
+            _carControllerPairs[message.id]!.tx.forceLcDown = message.value;
+            break;
+          case OxigenTxCommand.transmissionPower:
+            _carControllerPairs[message.id]!.tx.transmissionPower = message.value;
+            break;
+        }
+        _txCommandQueue.addLast(message);
+      } else if (message == null) {
+        break;
+      }
+    }
+  }
+
+  void _serialPortRefresh() {
+    _serialPortClear();
+    var availablePortNames = SerialPort.availablePorts;
+    _callbackPort.send(availablePortNames);
+    if (availablePortNames.isNotEmpty) {
+      for (final address in availablePortNames) {
+        final port = SerialPort(address);
+        try {
+          if (port.vendorId != null && port.vendorId == 0x1FEE && port.productId != null && port.productId == 0x2) {
+            _serialPortSet(address);
+            port.dispose();
+            break;
+          }
+          port.dispose();
+        } on SerialPortError {}
+        if (_serialPort == null) {
+          _serialPortSet(availablePortNames.first);
+        }
+      }
+    }
+  }
+
+  void _serialPortSet(String name) {
+    _serialPortClear();
+    _serialPort = SerialPort(name);
+    _callbackPort.send(SerialPortResponse(_serialPort));
+  }
+
+  void _serialPortClear() {
+    if (_serialPortStreamSubscription != null) {
+      _serialPortStreamSubscription!.cancel();
+      _serialPortStreamSubscription = null;
+    }
+    if (_serialPortReader != null) {
+      _serialPortReader!.close();
+      _serialPortReader = null;
+    }
+    if (_serialPort != null) {
+      if (_serialPort!.isOpen) {
+        if (!_serialPort!.close() && SerialPort.lastError != null) {
+          _callbackPort.send(SerialPort.lastError);
+        }
+      }
+    }
+  }
+
+  void _serialPortReset() {
+    _serialPortClear();
+    _serialPortOpen(false);
+  }
+
+  bool _serialPortIsOpen() {
+    return _serialPort != null && _serialPort!.isOpen;
+  }
+
+  void _serialPortOpen(bool dongleFirmwareVersion) {
+    if (!_serialPort!.openReadWrite() && SerialPort.lastError != null) {
+      _callbackPort.send(SerialPort.lastError);
+      return;
+    }
+    _callbackPort.send(SerialPortResponse(_serialPort));
+    _serialPortReadStream();
+    if (dongleFirmwareVersion) {
+      _serialPortDongleCommandDongleFirmwareVersion();
+    } else {
+      _serialPortWriteLoop();
+    }
+  }
+
+  void _serialPortClose() {
+    _serialPortClear();
+    _callbackPort.send(SerialPortResponse(_serialPort));
+  }
+
+  void _serialPortDongleCommandDongleFirmwareVersion() {
+    final bytes = Uint8List.fromList([6, 6, 6, 6, 0, 0, 0]);
+    _serialPort!.write(bytes);
+  }
+
+  void _serialPortWriteLoop() {
+    try {
+      int byte0;
+      switch (_txRaceState) {
+        case null:
+          return;
+        case OxigenTxRaceState.running:
+          byte0 = 0x3;
+          break;
+        case OxigenTxRaceState.paused:
+          byte0 = 0x4;
+          break;
+        case OxigenTxRaceState.stopped:
+          byte0 = 0x1;
+          break;
+        case OxigenTxRaceState.flaggedLcEnabled:
+          byte0 = 0x5;
+          break;
+        case OxigenTxRaceState.flaggedLcDisabled:
+          byte0 = 0x15;
+          break;
+      }
+
+      switch (_txPitlaneLapCounting) {
+        case null:
+          return;
+        case OxigenTxPitlaneLapCounting.enabled:
+          break;
+        case OxigenTxPitlaneLapCounting.disabled:
+          byte0 = byte0 | (pow(2, 5) as int);
+          break;
+      }
+
+      if (_txPitlaneLapCounting != null && _txPitlaneLapCounting == OxigenTxPitlaneLapCounting.enabled) {
+        switch (_txPitlaneLapTrigger) {
+          case null:
+            return;
+          case OxigenTxPitlaneLapTrigger.pitlaneEntry:
+            break;
+          case OxigenTxPitlaneLapTrigger.pitlaneExit:
+            byte0 = byte0 | (pow(2, 6) as int);
+            break;
+        }
+      }
+
+      if (_maximumSpeed == null) {
+        return;
+      }
+
+      if (!_serialPortIsOpen()) {
+        return;
+      }
+
+      var id = 0;
+      var byte3 = 0;
+      var byte4 = 0;
+
+      if (_txCommandQueue.isNotEmpty) {
+        final txCommand = _txCommandQueue.first;
+        _txCommandQueue.removeFirst();
+        _txCommandQueue.removeWhere((x) => x.id == txCommand.id && x.command == txCommand.command);
+
+        id = txCommand.id;
+        final txCarControllerPair = _carControllerPairs[id]!.tx;
+
+        switch (txCommand.command) {
+          case OxigenTxCommand.maximumSpeed:
+            byte3 = 2;
+            byte4 = txCarControllerPair.maximumSpeed ?? 0;
+            break;
+          case OxigenTxCommand.minimumSpeed:
+          case OxigenTxCommand.forceLcUp:
+          case OxigenTxCommand.forceLcDown:
+            byte3 = 3;
+            byte4 = (txCarControllerPair.minimumSpeed ?? 0) |
+                (txCarControllerPair.forceLcDown == null
+                    ? 0
+                    : txCarControllerPair.forceLcDown!
+                        ? 64
+                        : 0) |
+                (txCarControllerPair.forceLcUp == null
+                    ? 0
+                    : txCarControllerPair.forceLcUp!
+                        ? 128
+                        : 0);
+            break;
+          case OxigenTxCommand.pitlaneSpeed:
+            byte3 = 1;
+            byte4 = txCarControllerPair.pitlaneSpeed ?? 0;
+            break;
+          case OxigenTxCommand.maximumBrake:
+            byte3 = 5;
+            byte4 = txCarControllerPair.maximumBrake ?? 0;
+            break;
+          case OxigenTxCommand.transmissionPower:
+            byte3 = 4;
+            byte4 = txCarControllerPair.transmissionPower?.index ?? 0;
+            break;
+        }
+
+        if (id > 0) {
+          byte3 = byte3 | 0x80;
+        }
+      }
+
+      if (_txTimer != null) {
+        _txTimer!.cancel();
+        _txTimer = null;
+      }
+
+      final bytes = Uint8List.fromList([byte0, _maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
+      _serialPort!.write(bytes, timeout: 0);
+
+      if (_txTimeoutTimer != null) {
+        _txTimeoutTimer!.cancel();
+      }
+      _txTimeoutTimer = Timer(Duration(milliseconds: _txTimeout), () => _serialPortWriteLoop());
+    } on SerialPortError catch (e) {
+      print('_serialPortReadStreamAsync SerialPortError error: ${e.message}');
+      _callbackPort.send(e);
+      _serialPortReset();
+    } catch (e) {
+      print('_serialPortWriteLoop error: $e');
+      _callbackPort.send(e);
+    }
+  }
+
+  void _serialPortReadStream() {
+    _serialPortReader = SerialPortReader(_serialPort!);
+    _serialPortStreamSubscription = _serialPortReader!.stream.listen((buffer) async {
+      try {
+        if (buffer.length == 5) {
+          _unusedBuffer = null;
+          _callbackPort.send(DongleFirmwareVersionResponse(dongleFirmwareVersion: buffer[0] + buffer[1] / 100));
+          _callbackPort.send(RxResponse(rxBufferLength: buffer.length));
+        } else if (buffer.length % 13 == 0) {
+          _unusedBuffer = null;
+          _callbackPort.send(_processBuffer(buffer, buffer.length));
+        } else {
+          //print('Got ${buffer.length} characters from stream');
+          if (_unusedBuffer == null) {
+            _unusedBuffer = buffer;
+          } else {
+            final bytesBuilder = BytesBuilder();
+            bytesBuilder.add(_unusedBuffer!);
+            bytesBuilder.add(buffer);
+            _unusedBuffer = bytesBuilder.toBytes();
+          }
+          if (_unusedBuffer!.length % 13 == 0) {
+            print('Combining ${_unusedBuffer!.length} characters from stream');
+            _callbackPort.send(_processBuffer(_unusedBuffer!, buffer.length));
+          } else {
+            _callbackPort.send(RxResponse(rxBufferLength: buffer.length));
+          }
+        }
+
+        if (_txTimer != null) {
+          return;
+        }
+
+        _txTimer = Timer(Duration(milliseconds: _txDelay), () => _serialPortWriteLoop());
+      } on SerialPortError catch (e) {
+        print('_serialPortReadStreamAsync SerialPortError error: ${e.message}');
+        _callbackPort.send(e);
+        _serialPortReset();
+      } catch (e) {
+        print('_serialPortReadStreamAsync error: $e');
+        _callbackPort.send(e);
+      }
+    });
+  }
+
+  RxResponse _processBuffer(Uint8List buffer, int rxBufferLength) {
+    final result = RxResponse(rxBufferLength: rxBufferLength);
+    final now = DateTime.now();
+    var offset = 0;
+    do {
+      final id = buffer[1 + offset];
+
+      _processCarControllerBuffer(
+          rxCarControllerPair: _carControllerPairs[id]!.rx,
+          buffer: Uint8List.view(buffer.buffer, offset, 13),
+          now: now);
+
+      if (_carControllerPairs[id]!.rx.refreshRate != null) {
+        _carControllerPairs[id]!.rx.txRefreshRates.addLast(CarControllerTxRefreshRate(
+            txOffset: now.millisecondsSinceEpoch, refreshRate: _carControllerPairs[id]!.rx.refreshRate!));
+        while (_carControllerPairs[id]!.rx.txRefreshRates.length >= 20) {
+          _carControllerPairs[id]!.rx.txRefreshRates.removeFirst();
+        }
+      }
+
+      result.updatedRxCarControllerPairs[id] = _carControllerPairs[id]!.rx;
+
+      offset = offset + 13;
+    } while (offset < buffer.length - 1);
+    //print(DateTime.now().microsecondsSinceEpoch - now.microsecondsSinceEpoch);
+
+    return result;
+  }
+
+  void _processCarControllerBuffer(
+      {required RxCarControllerPair rxCarControllerPair, required Uint8List buffer, required DateTime now}) {
+    final oldCarReset = rxCarControllerPair.carReset;
+    final oldControllerCarLink = rxCarControllerPair.controllerCarLink;
+    final oldDongleLaps = rxCarControllerPair.dongleLaps;
+
+    if (buffer[0] & (pow(2, 0) as int) == 0) {
+      rxCarControllerPair.carReset = OxigenRxCarReset.carPowerSupplyHasntChanged;
+    } else {
+      rxCarControllerPair.carReset = OxigenRxCarReset.carHasJustBeenPoweredUpOrReset;
+    }
+    if (rxCarControllerPair.carReset == OxigenRxCarReset.carHasJustBeenPoweredUpOrReset &&
+        oldCarReset != rxCarControllerPair.carReset) {
+      rxCarControllerPair.carResetCount++;
+    }
+
+    if (buffer[0] & (pow(2, 1) as int) == 0) {
+      rxCarControllerPair.controllerCarLink = OxigenRxControllerCarLink.controllerLinkWithItsPairedCarHasntChanged;
+    } else {
+      rxCarControllerPair.controllerCarLink = OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar;
+    }
+    if (rxCarControllerPair.controllerCarLink ==
+            OxigenRxControllerCarLink.controllerHasJustGotTheLinkWithItsPairedCar &&
+        oldControllerCarLink != rxCarControllerPair.controllerCarLink) {
+      rxCarControllerPair.controllerCarLinkCount++;
+    }
+
+    if (buffer[0] & (pow(2, 2) as int) == 0) {
+      rxCarControllerPair.controllerBatteryLevel = OxigenRxControllerBatteryLevel.ok;
+    } else {
+      rxCarControllerPair.controllerBatteryLevel = OxigenRxControllerBatteryLevel.low;
+    }
+
+    if (buffer[0] & (pow(2, 3) as int) == 0) {
+      rxCarControllerPair.trackCall = OxigenRxTrackCall.no;
+    } else {
+      rxCarControllerPair.trackCall = OxigenRxTrackCall.yes;
+    }
+
+    if (buffer[0] & (pow(2, 5) as int) == 0) {
+      rxCarControllerPair.arrowUpButton = OxigenRxArrowUpButton.buttonNotPressed;
+    } else {
+      rxCarControllerPair.arrowUpButton = OxigenRxArrowUpButton.buttonPressed;
+    }
+
+    if (buffer[0] & (pow(2, 6) as int) == 0) {
+      rxCarControllerPair.arrowDownButton = OxigenRxArrowDownButton.buttonNotPressed;
+    } else {
+      rxCarControllerPair.arrowDownButton = OxigenRxArrowDownButton.buttonPressed;
+    }
+
+    if (buffer[7] & (pow(2, 7) as int) == 0) {
+      rxCarControllerPair.carOnTrack = OxigenRxCarOnTrack.carIsNotOnTheTrack;
+    } else {
+      rxCarControllerPair.carOnTrack = OxigenRxCarOnTrack.carIsOnTheTrack;
+    }
+
+    if (buffer[8] & (pow(2, 6) as int) == 0) {
+      rxCarControllerPair.carPitLane = OxigenRxCarPitLane.carIsNotInThePitLane;
+    } else {
+      rxCarControllerPair.carPitLane = OxigenRxCarPitLane.carIsInThePitLane;
+    }
+
+    rxCarControllerPair.triggerMeanValue = buffer[7] & 0x7F;
+    rxCarControllerPair.dongleLapTime = buffer[2] * 256 + buffer[3];
+    rxCarControllerPair.dongleLapTimeDelay = buffer[4];
+    rxCarControllerPair.dongleLaps = buffer[6] * 256 + buffer[5];
+
+    OxigenRxDeviceSoftwareReleaseOwner deviceSoftwareReleaseOwner;
+    if (buffer[8] & (pow(2, 7) as int) == 0) {
+      deviceSoftwareReleaseOwner = OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease;
+    } else {
+      deviceSoftwareReleaseOwner = OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease;
+    }
+
+    final softwareRelease = (buffer[8] & 48) / 16 + (buffer[0] & 16) / 100 + (buffer[8] & 15) / 100;
+
+    switch (deviceSoftwareReleaseOwner) {
+      case OxigenRxDeviceSoftwareReleaseOwner.controllerSoftwareRelease:
+        rxCarControllerPair.controllerFirmwareVersion = softwareRelease;
+        break;
+      case OxigenRxDeviceSoftwareReleaseOwner.carSoftwareRelease:
+        rxCarControllerPair.carFirmwareVersion = softwareRelease;
+        break;
+    }
+
+    rxCarControllerPair.dongleRaceTimer = buffer[9] * 16777216 + buffer[10] * 65536 + buffer[11] * 256 + buffer[12];
+
+    rxCarControllerPair.dongleLapRaceTimer =
+        rxCarControllerPair.dongleRaceTimer - rxCarControllerPair.dongleLapTimeDelay;
+
+    rxCarControllerPair.dongleLapTimeSeconds = rxCarControllerPair.dongleLapTime / 99.25;
+
+    if (rxCarControllerPair.previousLapRaceTimer == null) {
+      if (rxCarControllerPair.dongleRaceTimer == 0) {
+        rxCarControllerPair.previousLapRaceTimer = 0;
+      }
+    } else if (rxCarControllerPair.dongleRaceTimer > 0) {
+      if (oldDongleLaps != rxCarControllerPair.dongleLaps) {
+        // New lap
+        if (rxCarControllerPair.calculatedLaps == null) {
+          rxCarControllerPair.calculatedLaps = 0;
+        } else {
+          rxCarControllerPair.calculatedLaps = rxCarControllerPair.calculatedLaps! + 1;
+          if (rxCarControllerPair.previousLapRaceTimer != null) {
+            rxCarControllerPair.calculatedLapTimeSeconds =
+                (rxCarControllerPair.dongleLapRaceTimer - rxCarControllerPair.previousLapRaceTimer!) / 100.0;
+
+            if (rxCarControllerPair.fastestLapTime == null ||
+                rxCarControllerPair.fastestLapTime! > rxCarControllerPair.calculatedLapTimeSeconds!) {
+              rxCarControllerPair.fastestLapTime = rxCarControllerPair.calculatedLapTimeSeconds!;
+            }
+
+            rxCarControllerPair.practiceSessionLaps.addFirst(PracticeSessionLap(
+                lap: rxCarControllerPair.calculatedLaps!, lapTime: rxCarControllerPair.calculatedLapTimeSeconds!));
+            if (rxCarControllerPair.practiceSessionLaps.length >= 6) {
+              rxCarControllerPair.practiceSessionLaps.removeLast();
+            }
+          }
+        }
+        rxCarControllerPair.previousLapRaceTimer = rxCarControllerPair.dongleLapRaceTimer;
+      }
+    }
+
+    if (rxCarControllerPair.updatedAt != null) {
+      rxCarControllerPair.refreshRate =
+          now.millisecondsSinceEpoch - rxCarControllerPair.updatedAt!.millisecondsSinceEpoch;
+    }
+    rxCarControllerPair.updatedAt = now;
+  }
+}

@@ -20,8 +20,7 @@ class LapData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(builder: (context, model, child) {
-      final carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
-      carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
+      final carControllerPairs = model.carControllerPairs();
       if (carControllerPairs.isEmpty) {
         return const Center(child: Text('There are no connected controllers'));
       } else {

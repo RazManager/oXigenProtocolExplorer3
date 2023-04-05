@@ -27,13 +27,12 @@ class Settings extends StatelessWidget {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Cannot find any serial ports.'),
           const SizedBox(height: 16),
-          FilledButton.tonal(
-              onPressed: () => model.availablePortsRefresh(true), child: const Text('Refresh serial ports')),
+          FilledButton.tonal(onPressed: () => model.serialPortRefresh(), child: const Text('Refresh serial ports')),
         ]);
       } else {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           DropdownButton<String>(
-              value: model.serialPort?.name,
+              value: model.serialPortGet(),
               items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
                 final port = SerialPort(x);
                 final result = DropdownMenuItem<String>(
@@ -43,7 +42,7 @@ class Settings extends StatelessWidget {
                 port.dispose();
                 return result;
               }).toList(),
-              onChanged: (value) => model.serialPortSet(value!, true)),
+              onChanged: (value) => model.serialPortSet(value!)),
           const SizedBox(height: 8),
           Table(
             columnWidths: const <int, TableColumnWidth>{
@@ -121,7 +120,7 @@ class Settings extends StatelessWidget {
           Row(
             children: [
               FilledButton.tonal(
-                  onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen(true) : null,
+                  onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen() : null,
                   child: const Text('Open')),
               FilledButton.tonal(
                   onPressed: (model.serialPortCanClose()) ? () => model.serialPortClose() : null,
@@ -135,8 +134,7 @@ class Settings extends StatelessWidget {
           ),
           SizedBox(
               height: 16,
-              child:
-                  Text(model.oxigenDongleFirmwareVersion == null ? '' : model.oxigenDongleFirmwareVersion!.toString())),
+              child: Text(model.dongleFirmwareVersion == null ? '' : model.dongleFirmwareVersion!.toString())),
         ]);
       }
     });

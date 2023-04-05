@@ -42,8 +42,7 @@ class _CarControllerCommandsState extends State<CarControllerCommands> {
         const AppNavigationRail(),
         Expanded(
           child: Consumer<AppModel>(builder: (context, model, child) {
-            final carControllerPairs = model.carControllerPairs.entries.where((x) => x.key != 0).toList();
-            carControllerPairs.sort((a, b) => a.key.compareTo(b.key));
+            final carControllerPairs = model.carControllerPairs();
             if (carControllerPairs.isEmpty) {
               return Scaffold(
                   appBar: AppBar(title: const Text('Car/controller commands')),
@@ -64,10 +63,10 @@ class _CarControllerCommandsState extends State<CarControllerCommands> {
                   body: TabBarView(
                       children: carControllerPairs
                           .map((x) => Scrollbar(
-                                controller: x.value.rx.scrollController,
+                                controller: x.value.scrollController,
                                 thumbVisibility: true,
                                 child: SingleChildScrollView(
-                                  controller: x.value.rx.scrollController,
+                                  controller: x.value.scrollController,
                                   child: Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: Column(

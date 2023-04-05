@@ -42,7 +42,7 @@ class GlobalCommands extends StatelessWidget {
         CommandSlider(
             max: 255,
             id: 0,
-            value: model.carControllerPairs[0]!.tx.maximumSpeed,
+            value: model.globalCarControllerPairTx().maximumSpeed,
             setValue: model.oxigenTxMaximumSpeedSet),
         const Text(
           'Minimum speed',
@@ -51,7 +51,7 @@ class GlobalCommands extends StatelessWidget {
         CommandSlider(
             max: 63,
             id: 0,
-            value: model.carControllerPairs[0]!.tx.minimumSpeed,
+            value: model.globalCarControllerPairTx().minimumSpeed,
             setValue: model.oxigenTxMinimumSpeedSet),
         const Text(
           'Pitlane speed',
@@ -60,7 +60,7 @@ class GlobalCommands extends StatelessWidget {
         CommandSlider(
             max: 255,
             id: 0,
-            value: model.carControllerPairs[0]!.tx.pitlaneSpeed,
+            value: model.globalCarControllerPairTx().pitlaneSpeed,
             setValue: model.oxigenTxPitlaneSpeedSet),
         const Text(
           'Maximum brake',
@@ -69,7 +69,7 @@ class GlobalCommands extends StatelessWidget {
         CommandSlider(
             max: 255,
             id: 0,
-            value: model.carControllerPairs[0]!.tx.maximumBrake,
+            value: model.globalCarControllerPairTx().maximumBrake,
             setValue: model.oxigenTxMaximumBrakeSet),
         Table(
           columnWidths: const <int, TableColumnWidth>{
@@ -88,12 +88,12 @@ class GlobalCommands extends StatelessWidget {
                   if (states.contains(MaterialState.selected)) {
                     return const Icon(Icons.arrow_upward);
                   }
-                  if (model.carControllerPairs[0]!.tx.forceLcUp != null) {
+                  if (model.globalCarControllerPairTx().forceLcUp != null) {
                     return const Icon(Icons.close);
                   }
                   return const Icon(Icons.question_mark);
                 }),
-                value: model.carControllerPairs[0]!.tx.forceLcUp ?? false,
+                value: model.globalCarControllerPairTx().forceLcUp ?? false,
                 onChanged: (value) => model.oxigenTxForceLcUpSet(0, value),
               ),
             ]),
@@ -107,12 +107,12 @@ class GlobalCommands extends StatelessWidget {
                   if (states.contains(MaterialState.selected)) {
                     return const Icon(Icons.arrow_downward);
                   }
-                  if (model.carControllerPairs[0]!.tx.forceLcDown != null) {
+                  if (model.globalCarControllerPairTx().forceLcDown != null) {
                     return const Icon(Icons.close);
                   }
                   return const Icon(Icons.question_mark);
                 }),
-                value: model.carControllerPairs[0]!.tx.forceLcDown ?? false,
+                value: model.globalCarControllerPairTx().forceLcDown ?? false,
                 onChanged: (value) => model.oxigenTxForceLcDownSet(0, value),
               ),
             ])
@@ -132,9 +132,9 @@ class GlobalCommands extends StatelessWidget {
             ButtonSegment<OxigenTxTransmissionPower>(value: OxigenTxTransmissionPower.dBm0, label: Text('0 dBm')),
           ],
           emptySelectionAllowed: true,
-          selected: model.carControllerPairs[0]!.tx.transmissionPower == null
+          selected: model.globalCarControllerPairTx().transmissionPower == null
               ? {}
-              : {model.carControllerPairs[0]!.tx.transmissionPower!},
+              : {model.globalCarControllerPairTx().transmissionPower!},
           onSelectionChanged: (selected) {
             if (selected.isNotEmpty) {
               model.oxigenTxTransmissionPowerSet(0, selected.first);
