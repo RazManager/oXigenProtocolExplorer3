@@ -180,13 +180,11 @@ class AppModel extends ChangeNotifier {
 
   void _onSerialPortWorkerData(dynamic message) {
     if (message is SendPort) {
-      print('En sendport...');
       _sendPort = message;
     } else if (message is SerialPortResponse) {
       _serialPortResponse = message;
       notifyListeners();
     } else if (message is List<String>) {
-      print('availablePortNames...');
       availablePortNames = message;
       notifyListeners();
     } else if (message is RxResponse) {
