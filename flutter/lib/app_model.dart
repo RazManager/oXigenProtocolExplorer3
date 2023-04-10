@@ -77,6 +77,7 @@ class AppModel extends ChangeNotifier {
   }
 
   void serialPortClose() {
+    dongleFirmwareVersion = null;
     _sendPort!.send(SerialPortCloseRequest());
   }
 
