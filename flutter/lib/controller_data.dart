@@ -49,7 +49,7 @@ class ControllerData extends StatelessWidget {
                             const SizedBox(width: 10),
                             SizedBox(
                               width: 300,
-                              child: LinearProgressIndicator(value: x.value.rx.triggerMeanValue / 255),
+                              child: LinearProgressIndicator(value: x.value.rx.triggerMeanValue / 127),
                             ),
                           ],
                         )),
