@@ -316,10 +316,8 @@ class SerialPortWorker {
       _callbackPort.send(SerialPortResponse(_serialPort));
       _serialPortReadStream();
       if (dongleFirmwareVersion) {
-        print('_serialPortOpen _serialPortDongleCommandDongleFirmwareVersion');
         _serialPortDongleCommandDongleFirmwareVersion();
       } else {
-        print('_serialPortOpen _serialPortWriteLoop');
         _serialPortWriteLoop();
       }
     } on SerialPortError catch (e) {
