@@ -24,20 +24,20 @@ Click on "more information" (or similar), and accept to run it anyway.
 
 ### MacOS
 
-After extracting the .zip file, simply start oxigen_protocol_explorer_3.app. You'll get a warning that you're trying to run a file from an untrusted source.
-It's a bit complicated to get around this in MacOS, but by **very** carefully following the warning instructions, you should be able to start it.
+After extracting the .zip file (it if doesn't happen automatically), simply start oxigen_protocol_explorer_3.app. You'll get a warning that you're trying to run a file from an untrusted source.
+It's a bit complicated to get around this in MacOS, but by clicking the question mark in the warning popup and **very** carefully following the instructions, you should be able to start it. You may need to scroll down a quite a bit in the "Integrity and security" section to find where you can allow the program to run.
 
 
 ### Linux
 
-On RaspBerry Pi OS, extract the compressed file and you should then be able to start oxigen_protocol_explorer_3.
+On Raspberry Pi OS, extract the compressed file and you should then be able to start oxigen_protocol_explorer_3.
 
 On Ubuntu, it's a bit more complicated, as your user account typically doesn't have access to the serial port (it's not a member of the dialup group).
 The easiest to solve this is by running the program as root:
 
 <code>sudo ./oxigen_protocol_explorer_3</code>
 
-On Ubuntu on a RaspBerry Pi, you might get the following error:
+On Ubuntu on a Raspberry Pi, you might get the following error:
 
 <code>Failed to start Flutter renderer: Unable to create a GL context</code>
 
