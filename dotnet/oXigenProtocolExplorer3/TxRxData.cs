@@ -1,4 +1,5 @@
 ﻿using System;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 namespace oXigenProtocolExplorer3
@@ -29,6 +30,5 @@ namespace oXigenProtocolExplorer3
         public double? CarFirmwareVersion { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public TimeSpan? RefreshRate { get; set; }
-        public double? FastestLapTime { get; set; }
     }
 }

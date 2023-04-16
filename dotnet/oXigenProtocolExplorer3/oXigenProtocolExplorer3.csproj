@@ -4,6 +4,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <Nullable>enable</Nullable>
+	<PublishSingleFile>true</PublishSingleFile>
+	<AssemblyName>oxigen_protocol_explorer_3</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

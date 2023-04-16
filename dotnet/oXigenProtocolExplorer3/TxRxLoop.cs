@@ -32,6 +32,11 @@ namespace oXigenProtocolExplorer3
             _txTimeout = transmitTimeout;
             _controllerTimeout = controllerTimeout;
 
+            for (byte i = 0; i <= 20; i++)
+            {
+                _rxCarControllerPairs[i] = new RxCarControllerPair();
+            }
+
             _serialPort = new SerialPort(serialPortName);
             Console.WriteLine($"Opening {serialPortName}...");
             _serialPort.Open();
@@ -123,18 +128,11 @@ namespace oXigenProtocolExplorer3
                     {
                         var id = buffer[1 + offset];
 
-                        OxigenRxCarReset? oldCarReset = null;
-                        OxigenRxControllerCarLink? oldControllerCarLink = null;
-                        if (_rxCarControllerPairs.TryGetValue(id, out var rxCarControllerPair))
-                        {
-                            oldCarReset = rxCarControllerPair.CarReset;
-                            oldControllerCarLink = rxCarControllerPair.ControllerCarLink;
-                        }
-                        else
-                        {
-                            rxCarControllerPair = new();
-                            _rxCarControllerPairs.TryAdd(id, rxCarControllerPair);
-                        }
+                        var rxCarControllerPair = _rxCarControllerPairs[id];
+
+                        var oldCarReset = rxCarControllerPair.CarReset;
+                        var oldControllerCarLink = rxCarControllerPair.ControllerCarLink;
+                        var oldDongleLaps = rxCarControllerPair.DongleLaps;
 
                         if ((buffer[0 + offset] & (2 ^ 0)) == 0)
                         {
@@ -145,8 +143,7 @@ namespace oXigenProtocolExplorer3
                             rxCarControllerPair.CarReset = OxigenRxCarReset.CarHasJustBeenPoweredUpOrReset;
                         }
                         if (rxCarControllerPair.CarReset == OxigenRxCarReset.CarHasJustBeenPoweredUpOrReset &&
-                            oldCarReset is not null &&
-                            oldCarReset.Value != rxCarControllerPair.CarReset)
+                            oldCarReset != rxCarControllerPair.CarReset)
                         {
                             rxCarControllerPair.CarResetCount++;
                         }
@@ -162,8 +159,7 @@ namespace oXigenProtocolExplorer3
                                 OxigenRxControllerCarLink.ControllerHasJustGotTheLinkWithItsPairedCar;
                         }
                         if (rxCarControllerPair.ControllerCarLink == OxigenRxControllerCarLink.ControllerHasJustGotTheLinkWithItsPairedCar &&
-                            oldControllerCarLink is not null &&
-                            oldControllerCarLink.Value != rxCarControllerPair.ControllerCarLink)
+                            oldControllerCarLink != rxCarControllerPair.ControllerCarLink)
                         {
                             rxCarControllerPair.ControllerCarLinkCount++;
                         }
@@ -269,9 +265,9 @@ namespace oXigenProtocolExplorer3
                         }
                         else if (rxCarControllerPair.DongleRaceTimer > 0)
                         {
-                            if (rxCarControllerPair.PreviousLapRaceTimer != rxCarControllerPair.DongleLapRaceTimer)
+                            if (oldDongleLaps != rxCarControllerPair.DongleLaps)
                             {
-                                if (rxCarControllerPair.CalculatedLaps == null)
+                                if (rxCarControllerPair.CalculatedLaps is null)
                                 {
                                     rxCarControllerPair.CalculatedLaps = 0;
                                 }
@@ -282,12 +278,6 @@ namespace oXigenProtocolExplorer3
                                     {
                                         rxCarControllerPair.CalculatedLapTimeSeconds =
                                             (rxCarControllerPair.DongleLapRaceTimer - rxCarControllerPair.PreviousLapRaceTimer) / 100.0;
-
-                                        if (rxCarControllerPair.FastestLapTime is null ||
-                                            rxCarControllerPair.FastestLapTime > rxCarControllerPair.CalculatedLapTimeSeconds)
-                                        {
-                                            rxCarControllerPair.FastestLapTime = rxCarControllerPair.CalculatedLapTimeSeconds;
-                                        }
                                     }
                                 }
                                 rxCarControllerPair.PreviousLapRaceTimer = rxCarControllerPair.DongleLapRaceTimer;
