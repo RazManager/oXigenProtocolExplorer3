@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:provider/provider.dart';
 
@@ -31,18 +32,33 @@ class Settings extends StatelessWidget {
         ]);
       } else {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          DropdownButton<String>(
-              value: model.serialPortGet(),
-              items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
-                final port = SerialPort(x);
-                final result = DropdownMenuItem<String>(
-                  value: x,
-                  child: Text(port.description!),
-                );
-                port.dispose();
-                return result;
-              }).toList(),
-              onChanged: (value) => model.serialPortSet(value!)),
+          const Text(
+            'Serial port *',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Row(
+            children: [
+              DropdownButton<String>(
+                  value: model.serialPortGet(),
+                  items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
+                    final port = SerialPort(x);
+                    String vendorIdProductId = "";
+                    try {
+                      vendorIdProductId =
+                          ' (Vendor id: 0x${port.vendorId?.toRadixString(16)}, Product id: 0x${port.productId?.toRadixString(16)})';
+                    } on SerialPortError {}
+                    final result = DropdownMenuItem<String>(
+                      value: x,
+                      child: Text('${port.description!}$vendorIdProductId'),
+                    );
+                    port.dispose();
+                    return result;
+                  }).toList(),
+                  onChanged: (value) => model.serialPortSet(value!)),
+              const SizedBox(width: 16),
+              FilledButton.tonal(onPressed: () => model.serialPortRefresh(), child: const Text('Refresh')),
+            ],
+          ),
           const SizedBox(height: 8),
           Table(
             columnWidths: const <int, TableColumnWidth>{
@@ -121,10 +137,11 @@ class Settings extends StatelessWidget {
             children: [
               FilledButton.tonal(
                   onPressed: (model.serialPortCanOpen()) ? () => model.serialPortOpen() : null,
-                  child: const Text('Open')),
+                  child: const Text('Open serial port and start communication')),
+              const SizedBox(width: 16),
               FilledButton.tonal(
                   onPressed: (model.serialPortCanClose()) ? () => model.serialPortClose() : null,
-                  child: const Text('Close')),
+                  child: const Text('Close serial port')),
             ],
           ),
           const SizedBox(height: 32),
@@ -134,7 +151,7 @@ class Settings extends StatelessWidget {
           ),
           SizedBox(
               height: 16,
-              child: Text(model.dongleFirmwareVersion == null ? '' : model.dongleFirmwareVersion!.toString())),
+              child: Text(model.dongleFirmwareVersion != null ? model.dongleFirmwareVersion!.toString() : '')),
         ]);
       }
     });

@@ -55,6 +55,49 @@ final router = GoRouter(
 class AppNavigationRail extends StatelessWidget {
   const AppNavigationRail({super.key});
 
+  void showAbout(BuildContext context, String applicationVersion) {
+    showAboutDialog(
+        context: context,
+        applicationIcon: const ImageIcon(AssetImage('assets/icons/logo.png')),
+        applicationName: "oXigen Protocol Explorer 3",
+        children: [
+          Row(children: [
+            Table(columnWidths: const <int, TableColumnWidth>{
+              0: IntrinsicColumnWidth(),
+              1: IntrinsicColumnWidth(),
+            }, children: [
+              TableRow(
+                  children: [const TableCell(child: Text('Version:  ')), TableCell(child: Text(applicationVersion))]),
+              TableRow(children: [
+                const TableCell(child: Text('Operating system:  ')),
+                TableCell(
+                    child: Text(Platform.isAndroid
+                        ? 'Android'
+                        : Platform.isFuchsia
+                            ? 'isFuchsia'
+                            : Platform.isIOS
+                                ? 'iOS'
+                                : Platform.isLinux
+                                    ? 'Linux'
+                                    : Platform.isMacOS
+                                        ? 'MacOS'
+                                        : Platform.isWindows
+                                            ? 'Windows'
+                                            : '?'))
+              ]),
+              TableRow(children: [
+                const TableCell(child: Text('Operating system version:  ')),
+                TableCell(child: Text(Platform.operatingSystemVersion))
+              ]),
+              TableRow(children: [
+                const TableCell(child: Text('Dart runtime:  ')),
+                TableCell(child: Text(Platform.version))
+              ]),
+            ])
+          ])
+        ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final model = context.read<AppModel>();
@@ -104,44 +147,7 @@ class AppNavigationRail extends StatelessWidget {
                       break;
 
                     case 8:
-                      showAboutDialog(
-                          context: context,
-                          applicationIcon: const ImageIcon(AssetImage('assets/icons/logo.png')),
-                          applicationName: "oXigen Protocol Explorer 3",
-                          children: [
-                            Row(children: [
-                              Table(columnWidths: const <int, TableColumnWidth>{
-                                0: IntrinsicColumnWidth(),
-                                1: IntrinsicColumnWidth(),
-                              }, children: [
-                                TableRow(children: [
-                                  const TableCell(child: Text('Operating system:  ')),
-                                  TableCell(
-                                      child: Text(Platform.isAndroid
-                                          ? 'Android'
-                                          : Platform.isFuchsia
-                                              ? 'isFuchsia'
-                                              : Platform.isIOS
-                                                  ? 'iOS'
-                                                  : Platform.isLinux
-                                                      ? 'Linux'
-                                                      : Platform.isMacOS
-                                                          ? 'MacOS'
-                                                          : Platform.isWindows
-                                                              ? 'Windows'
-                                                              : '?'))
-                                ]),
-                                TableRow(children: [
-                                  const TableCell(child: Text('Operating system version:  ')),
-                                  TableCell(child: Text(Platform.operatingSystemVersion))
-                                ]),
-                                TableRow(children: [
-                                  const TableCell(child: Text('Dart runtime:  ')),
-                                  TableCell(child: Text(Platform.version))
-                                ]),
-                              ])
-                            ])
-                          ]);
+                      showAbout(context, model.applicationVersion);
                       break;
                     default:
                   }

@@ -1,0 +1,4 @@
+About dialog: Application version added.
+Settings view: Serial port dropdown list shows vendor and product ids so that its easier to identify an oXigen dongle (Windows and MacOS only).
+Settings view: Refresh button added which will update the serial port dropdown list.
+Settings view: A warning is shown if a serial port is opened and no dongle firmware version is reported within 5 seconds.

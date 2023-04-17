@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'oxigen_constants.dart';
 import 'serial_port_worker.dart';
@@ -17,8 +18,10 @@ class AppModel extends ChangeNotifier {
   AppModel() {
     Isolate.spawn(SerialPortWorker().startAsync, _receivePort.sendPort);
     _serialPortWorkerDataStreamSubscription = _receivePort.listen((message) => _onSerialPortWorkerData(message));
+    platForm();
   }
 
+  late String applicationVersion;
   int menuIndex = 0;
 
   final _receivePort = ReceivePort();
@@ -27,6 +30,7 @@ class AppModel extends ChangeNotifier {
 
   SerialPortResponse? _serialPortResponse;
   List<String> availablePortNames = [];
+  Timer? _serialPortOpenedTimer;
 
   OxigenTxPitlaneLapCounting? txPitlaneLapCounting;
   OxigenTxPitlaneLapTrigger? txPitlaneLapTrigger;
@@ -42,6 +46,11 @@ class AppModel extends ChangeNotifier {
   final Map<int, CarControllerPair> _carControllerPairs = List.generate(21, (index) => CarControllerPair()).asMap();
   Queue<int> refreshRatesQueue = Queue<int>();
   Stopwatch stopwatch = Stopwatch();
+
+  void platForm() async {
+    var packageInfo = await PackageInfo.fromPlatform();
+    applicationVersion = packageInfo.version;
+  }
 
   void serialPortRefresh() {
     _sendPort!.send(SerialPortRefreshRequest());
@@ -69,6 +78,17 @@ class AppModel extends ChangeNotifier {
   }
 
   void serialPortOpen() {
+    dongleFirmwareVersion = null;
+    if (_serialPortOpenedTimer != null) {
+      _serialPortOpenedTimer!.cancel();
+    }
+    _serialPortOpenedTimer = Timer(const Duration(seconds: 5), () {
+      if (serialPortIsOpen() && dongleFirmwareVersion == null) {
+        exceptionStreamController.add('No dongle firmware version reported. Is an oXigen dongle serial port selected?');
+        notifyListeners();
+      }
+    });
+
     _sendPort!.send(SerialPortOpenRequest());
   }
 
