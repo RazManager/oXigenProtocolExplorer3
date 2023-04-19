@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
@@ -88,7 +89,13 @@ class TxTimeoutRequest {
   final int txTimeout;
 }
 
-class SerialPortRefreshRequest {}
+class SerialPortListRequest {}
+
+class SerialPortListResponse {
+  SerialPortListResponse({required this.name, required this.description});
+  final String name;
+  final String description;
+}
 
 class SerialPortSetRequest {
   SerialPortSetRequest({required this.name});
@@ -155,11 +162,11 @@ class SerialPortWorker {
     _callbackPort = callbackPort;
     final commandPort = ReceivePort();
     callbackPort.send(commandPort.sendPort);
-    _serialPortRefresh();
+    _serialPortList();
 
     await for (final message in commandPort) {
-      if (message is SerialPortRefreshRequest) {
-        _serialPortRefresh();
+      if (message is SerialPortListRequest) {
+        _serialPortList();
       } else if (message is SerialPortSetRequest) {
         _serialPortSet(message.name);
       } else if (message is SerialPortOpenRequest) {
@@ -218,11 +225,33 @@ class SerialPortWorker {
     }
   }
 
-  void _serialPortRefresh() {
+  void _serialPortList() {
     try {
       _serialPortClear();
-      var availablePortNames = SerialPort.availablePorts;
-      _callbackPort.send(availablePortNames);
+      final availablePortNames = SerialPort.availablePorts;
+      final List<SerialPortListResponse> result = [];
+      for (final address in availablePortNames) {
+        final port = SerialPort(address);
+        String vendorIdProductId = '';
+        try {
+          if (port.vendorId != null) {
+            vendorIdProductId += 'Vendor id: 0x${port.vendorId?.toRadixString(16)}';
+          }
+          if (port.productId != null) {
+            if (vendorIdProductId != '') {
+              vendorIdProductId += ', ';
+            }
+            vendorIdProductId += 'Product id: 0x${port.productId?.toRadixString(16)}';
+          }
+          if (vendorIdProductId != '') {
+            vendorIdProductId = ' ($vendorIdProductId)';
+          }
+        } on SerialPortError {}
+        result.add(SerialPortListResponse(name: address, description: '${port.description}$vendorIdProductId'));
+        port.dispose();
+      }
+
+      _callbackPort.send(result);
       if (availablePortNames.isNotEmpty) {
         for (final address in availablePortNames) {
           final port = SerialPort(address);

@@ -29,7 +29,7 @@ class AppModel extends ChangeNotifier {
   StreamSubscription<dynamic>? _serialPortWorkerDataStreamSubscription;
 
   SerialPortResponse? _serialPortResponse;
-  List<String> availablePortNames = [];
+  List<SerialPortListResponse> serialPortList = [];
   Timer? _serialPortOpenedTimer;
 
   OxigenTxPitlaneLapCounting? txPitlaneLapCounting;
@@ -53,7 +53,7 @@ class AppModel extends ChangeNotifier {
   }
 
   void serialPortRefresh() {
-    _sendPort!.send(SerialPortRefreshRequest());
+    _sendPort!.send(SerialPortListRequest());
   }
 
   void serialPortSet(String name) {
@@ -205,8 +205,8 @@ class AppModel extends ChangeNotifier {
     } else if (message is SerialPortResponse) {
       _serialPortResponse = message;
       notifyListeners();
-    } else if (message is List<String>) {
-      availablePortNames = message;
+    } else if (message is List<SerialPortListResponse>) {
+      serialPortList = message;
       notifyListeners();
     } else if (message is RxResponse) {
       rxBufferLength = message.rxBufferLength;

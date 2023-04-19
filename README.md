@@ -7,7 +7,8 @@ I.e, the protocol that is used by slot.it's digital slot car system between a do
 ## Hardware and software requirements
 
 - An oXigen 3.X dongle.
-- A computer/device capable of running a 64-bit desktop version of Windows 7/8/10/11, MacOS or Linux. A Raspberry Pi will work, but it needs at least 1GB RAM.
+- A computer/device capable of running a 64-bit desktop version of Windows 7/8/10/11, macOS or Linux. A Raspberry Pi will work, but it needs at least 1GB RAM. "oXigen Protocol Explorer 3" is written in Flutter, so for details about supported OS versions, [please read the Flutter supported platforms documentation](https://docs.flutter.dev/reference/supported-platforms). In addition to that documentation, for macOS at least 10.14 is required.
+
 
 
 ## Installation
@@ -22,10 +23,10 @@ After extracting the .zip file, simply start oxigen_protocol_explorer_3.exe. You
 Click on "more information" (or similar), and accept to run it anyway.
 
 
-### MacOS
+### macOS
 
 After extracting the .zip file (it if doesn't happen automatically), simply start oxigen_protocol_explorer_3.app. You'll get a warning that you're trying to run a file from an untrusted source.
-It's a bit complicated to get around this in MacOS, but by clicking the question mark in the warning popup and **very** carefully following the instructions, you should be able to start it. You may need to scroll down a quite a bit in the "Integrity and security" section to find where you can allow the program to run.
+It's a bit complicated to get around this in macOS, but by clicking the question mark in the warning popup and **very** carefully following the instructions, you should be able to start it.
 
 
 ### Linux

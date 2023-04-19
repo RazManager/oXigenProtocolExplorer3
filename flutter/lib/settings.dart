@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:provider/provider.dart';
 
 import 'command_slider.dart';
@@ -24,7 +22,7 @@ class Settings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(builder: (context, model, child) {
-      if (model.availablePortNames.isEmpty) {
+      if (model.serialPortList.isEmpty) {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Cannot find any serial ports.'),
           const SizedBox(height: 16),
@@ -40,20 +38,11 @@ class Settings extends StatelessWidget {
             children: [
               DropdownButton<String>(
                   value: model.serialPortGet(),
-                  items: model.availablePortNames.map<DropdownMenuItem<String>>((x) {
-                    final port = SerialPort(x);
-                    String vendorIdProductId = "";
-                    try {
-                      vendorIdProductId =
-                          ' (Vendor id: 0x${port.vendorId?.toRadixString(16)}, Product id: 0x${port.productId?.toRadixString(16)})';
-                    } on SerialPortError {}
-                    final result = DropdownMenuItem<String>(
-                      value: x,
-                      child: Text('${port.description!}$vendorIdProductId'),
-                    );
-                    port.dispose();
-                    return result;
-                  }).toList(),
+                  items: model.serialPortList
+                      .map<DropdownMenuItem<String>>(
+                        (x) => DropdownMenuItem<String>(value: x.name, child: Text(x.description)),
+                      )
+                      .toList(),
                   onChanged: (value) => model.serialPortSet(value!)),
               const SizedBox(width: 16),
               FilledButton.tonal(onPressed: () => model.serialPortRefresh(), child: const Text('Refresh')),
