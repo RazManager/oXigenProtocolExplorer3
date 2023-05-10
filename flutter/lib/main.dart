@@ -17,7 +17,7 @@ class App extends StatelessWidget {
       create: (context) => AppModel(),
       child: MaterialApp.router(
         title: 'oXigen Protocol Explorer 3',
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blueGrey),
+        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
         routerConfig: router,
       ),
     );

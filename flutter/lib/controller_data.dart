@@ -64,7 +64,10 @@ class ControllerData extends StatelessWidget {
                             : const Text('')),
                         DataCell(x.value.rx.controllerBatteryLevel == OxigenRxControllerBatteryLevel.ok
                             ? const Icon(Icons.battery_full)
-                            : const Icon(Icons.battery_alert)),
+                            : const Icon(
+                                Icons.battery_alert,
+                                color: Colors.red,
+                              )),
                         DataCell(Text(x.value.rx.controllerFirmwareVersion.toString())),
                       ]))
                   .toList()),

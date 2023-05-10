@@ -8,6 +8,8 @@ import 'command_slider.dart';
 import 'oxigen_constants.dart';
 import 'page_base.dart';
 
+// Car/controller commands view
+
 class CarControllerCommands extends StatefulWidget {
   const CarControllerCommands({super.key});
 

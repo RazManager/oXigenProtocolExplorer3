@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:oxigen_protocol_explorer_3/page_base.dart';
 import 'package:provider/provider.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:syncfusion_flutter_gauges/gauges.dart';
 
 import 'app_model.dart';
+import 'page_base.dart';
 
 class TxRxLoop extends StatefulWidget {
   const TxRxLoop({super.key});
@@ -142,84 +143,124 @@ class _TxRxLoopState extends State<TxRxLoop> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                SegmentedButton<ChartType>(
-                  segments: const [
-                    ButtonSegment<ChartType>(
-                        value: ChartType.bar, label: Text('Bar chart'), icon: Icon(Icons.bar_chart)),
-                    ButtonSegment<ChartType>(
-                        value: ChartType.line, label: Text('Line chart'), icon: Icon(Icons.ssid_chart)),
-                  ],
-                  selected: {chartType},
-                  onSelectionChanged: (selected) {
-                    if (selected.isNotEmpty) {
-                      setState(() {
-                        chartType = selected.first;
-                      });
-                    }
-                  },
+                Center(
+                  child: SegmentedButton<ChartType>(
+                    segments: const [
+                      ButtonSegment<ChartType>(
+                          value: ChartType.bar, label: Text('Bar chart'), icon: Icon(Icons.bar_chart)),
+                      ButtonSegment<ChartType>(
+                          value: ChartType.line, label: Text('Line chart'), icon: Icon(Icons.ssid_chart)),
+                    ],
+                    selected: {chartType},
+                    onSelectionChanged: (selected) {
+                      if (selected.isNotEmpty) {
+                        setState(() {
+                          chartType = selected.first;
+                        });
+                      }
+                    },
+                  ),
                 ),
                 const SizedBox(height: 16),
-                if (chartType == ChartType.bar) ...[
-                  const Text(
-                    'RX buffer length',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      SizedBox(
-                          width: 25,
-                          child: Align(alignment: Alignment.centerRight, child: Text(model.rxBufferLength.toString()))),
-                      const SizedBox(width: 10),
-                      Expanded(child: LinearProgressIndicator(value: model.rxBufferLength / 52)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Car/controller RX refresh rate (ms)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
+                if (chartType == ChartType.bar)
                   Expanded(
-                    child: BarChart(
-                      BarChartData(
-                          maxY: model.refreshRatesQueue.isEmpty ? null : model.refreshRatesQueue.reduce(max).toDouble(),
-                          borderData: FlBorderData(show: false),
-                          gridData: FlGridData(drawVerticalLine: false),
-                          barGroups: carControllerPairs
-                              .map((kv) => BarChartGroupData(x: kv.key, barRods: [
-                                    BarChartRodData(
-                                        toY: kv.value.rx.refreshRate!.toDouble(), color: carControllerColors[kv.key])
-                                  ]))
-                              .toList()),
+                    child: SfCartesianChart(
+                      primaryXAxis: CategoryAxis(majorGridLines: const MajorGridLines(width: 0)),
+                      primaryYAxis: NumericAxis(
+                        title: AxisTitle(text: 'Car/controller RX refresh rate (ms)'),
+                        minimum: 0,
+                        maximum:
+                            model.refreshRatesQueue.isEmpty ? null : model.refreshRatesQueue.reduce(max).toDouble(),
+                      ),
+                      axes: <ChartAxis>[
+                        NumericAxis(
+                            name: 'yAxisRefreshRate',
+                            title: AxisTitle(text: 'RX buffer length (bytes)'),
+                            opposedPosition: true,
+                            minimum: 0,
+                            maximum: 52,
+                            interval: 13,
+                            majorGridLines: const MajorGridLines(width: 0))
+                      ],
+                      enableSideBySideSeriesPlacement: false,
+                      series: [
+                        ColumnSeries<_ResponseData, String>(
+                            dataSource: carControllerPairs
+                                .map((kv) => _ResponseData(x: kv.key, y: kv.value.rx.refreshRate ?? 0))
+                                .toList(),
+                            xValueMapper: (data, _) => data.x.toString(),
+                            yValueMapper: (data, _) => data.y,
+                            pointColorMapper: (data, _) => carControllerColors[data.x],
+                            dataLabelSettings: const DataLabelSettings(isVisible: true),
+                            animationDelay: 0,
+                            animationDuration: 0,
+                            width: 0.3),
+                        ColumnSeries(
+                            dataSource: [_ResponseData(x: model.rxBufferLength, y: 0)],
+                            xValueMapper: (_, __) => 'Buffer length',
+                            yValueMapper: (data, _) => data.x,
+                            yAxisName: 'yAxisRefreshRate',
+                            color: Colors.black,
+                            dataLabelSettings: const DataLabelSettings(isVisible: true),
+                            animationDelay: 0,
+                            animationDuration: 0,
+                            width: 0.3),
+                      ],
                     ),
                   ),
-                ],
-                if (chartType == ChartType.line) ...[
-                  const SizedBox(height: 16),
+                if (chartType == ChartType.line)
                   Expanded(
-                    child: LineChart(
-                        LineChartData(
-                          lineBarsData: carControllerPairs
-                              .map(
-                                (kv) => LineChartBarData(
-                                    spots: kv.value.rx.txRefreshRates
-                                        .map((txr) => FlSpot(txr.txOffset.toDouble(), txr.refreshRate.toDouble()))
-                                        .toList(),
-                                    color: carControllerColors[kv.key]),
-                              )
-                              .toList(),
-                          minY: 0,
-                          borderData: FlBorderData(show: false),
-                          gridData: FlGridData(drawVerticalLine: false),
-                          titlesData: FlTitlesData(
-                              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false))),
-                        ),
-                        swapAnimationDuration: const Duration(milliseconds: 0)),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                    child: SfCartesianChart(
+                        primaryXAxis: NumericAxis(
+                            minimum: carControllerPairs.isEmpty
+                                ? 0
+                                : carControllerPairs
+                                    .map((kv) => kv.value.rx.txRefreshRates.first.timestamp)
+                                    .reduce(max)
+                                    .toDouble(),
+                            isVisible: false),
+                        primaryYAxis:
+                            NumericAxis(title: AxisTitle(text: 'Car/controller RX refresh rate (ms)'), minimum: 0),
+                        axes: <ChartAxis>[
+                          NumericAxis(
+                              name: 'yAxisRefreshRate',
+                              title: AxisTitle(text: 'RX buffer length (bytes)'),
+                              opposedPosition: true,
+                              minimum: 0,
+                              maximum: 52,
+                              interval: 13,
+                              majorGridLines: const MajorGridLines(width: 0))
+                        ],
+                        legend: Legend(isVisible: true),
+                        series: carControllerPairs
+                            .map(
+                              (kv) => LineSeries<_ResponseData, int>(
+                                  dataSource: kv.value.rx.txRefreshRates
+                                      .map((e) => _ResponseData(x: e.timestamp, y: e.refreshRate))
+                                      .toList(),
+                                  xValueMapper: (data, _) => data.x,
+                                  yValueMapper: (data, _) => data.y,
+                                  color: carControllerColors[kv.key],
+                                  animationDelay: 0,
+                                  animationDuration: 0,
+                                  name: kv.key.toString()),
+                            )
+                            .toList()
+                            .followedBy([
+                          LineSeries<_ResponseData, int>(
+                              dataSource: model.rxResponseQueue
+                                  .map((e) => _ResponseData(x: e.timestamp, y: e.rxBufferLength))
+                                  .toList(),
+                              xValueMapper: (data, _) => data.x,
+                              yValueMapper: (data, _) => data.y,
+                              yAxisName: 'yAxisRefreshRate',
+                              color: Colors.black,
+                              markerSettings: const MarkerSettings(isVisible: true),
+                              animationDelay: 0,
+                              animationDuration: 0,
+                              name: "Buffer length")
+                        ]).toList()),
+                  )
               ]);
             }),
           ),
@@ -227,4 +268,10 @@ class _TxRxLoopState extends State<TxRxLoop> {
       )
     ]);
   }
+}
+
+class _ResponseData {
+  const _ResponseData({required this.x, required this.y});
+  final int x;
+  final int y;
 }

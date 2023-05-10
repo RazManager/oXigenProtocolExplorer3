@@ -45,3 +45,10 @@ On Ubuntu on a Raspberry Pi, you might get the following error:
 It's caused by missing graphic drivers, and the easiest way to run the program anyway is to add an environment variable so that software rendering is used instead:
 
 <code>export LIBGL_ALWAYS_SOFTWARE=1</code>
+
+
+## Licensing
+
+"oXigen Protocol Explorer 3" uses a MIT license, essentially meaning that you use the source code anyway you want.
+
+The source code has a dependency upon Syncfusion Flutter Charts, which [requries a specific license](https://pub.dev/packages/syncfusion_flutter_charts/license). If you use source code parts that require a Syncfusion library, you're required to [get a Syncfusion license yourself](https://www.syncfusion.com/sales/communitylicense).

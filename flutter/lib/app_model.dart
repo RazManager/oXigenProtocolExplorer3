@@ -45,6 +45,7 @@ class AppModel extends ChangeNotifier {
   double? dongleFirmwareVersion;
   final Map<int, CarControllerPair> _carControllerPairs = List.generate(21, (index) => CarControllerPair()).asMap();
   Queue<int> refreshRatesQueue = Queue<int>();
+  Queue<RxResponse> rxResponseQueue = Queue<RxResponse>();
   Stopwatch stopwatch = Stopwatch();
 
   void platForm() async {
@@ -159,43 +160,44 @@ class AppModel extends ChangeNotifier {
 
   void oxigenTxMaximumSpeedSet(int id, int value) {
     _carControllerPairs[id]!.tx.maximumSpeed = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.maximumSpeed, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.maximumSpeed, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxMinimumSpeedSet(int id, int value) {
     _carControllerPairs[id]!.tx.minimumSpeed = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.minimumSpeed, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.minimumSpeed, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxPitlaneSpeedSet(int id, int value) {
     _carControllerPairs[id]!.tx.pitlaneSpeed = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.pitlaneSpeed, value: value));
+    _carControllerPairs[id]!.tx.pitlaneSpeedSetAt = DateTime.now();
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.pitlaneSpeed, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxMaximumBrakeSet(int id, int value) {
     _carControllerPairs[id]!.tx.maximumBrake = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.maximumBrake, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.maximumBrake, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxForceLcUpSet(int id, bool value) {
     _carControllerPairs[id]!.tx.forceLcUp = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.forceLcUp, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.forceLcUp, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxForceLcDownSet(int id, bool value) {
     _carControllerPairs[id]!.tx.forceLcDown = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.forceLcDown, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.forceLcDown, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
   void oxigenTxTransmissionPowerSet(int id, OxigenTxTransmissionPower value) {
     _carControllerPairs[id]!.tx.transmissionPower = value;
-    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.transmissionPower, value: value));
+    _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.transmissionPower, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }
 
@@ -219,6 +221,11 @@ class AppModel extends ChangeNotifier {
             refreshRatesQueue.removeFirst();
           }
         }
+      }
+
+      rxResponseQueue.addLast(message);
+      while (rxResponseQueue.length >= 100) {
+        rxResponseQueue.removeFirst();
       }
 
       notifyListeners();

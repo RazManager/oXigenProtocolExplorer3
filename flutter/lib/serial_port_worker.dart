@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
@@ -13,6 +12,7 @@ class TxCarControllerPair {
   int? maximumSpeed;
   int? minimumSpeed;
   int? pitlaneSpeed;
+  DateTime? pitlaneSpeedSetAt;
   int? maximumBrake;
   bool? forceLcUp;
   bool? forceLcDown;
@@ -44,7 +44,7 @@ class RxCarControllerPair {
   double? carFirmwareVersion;
   DateTime? updatedAt;
   int? refreshRate;
-  Queue<CarControllerTxRefreshRate> txRefreshRates = Queue<CarControllerTxRefreshRate>();
+  Queue<CarControllerRxRefreshRate> txRefreshRates = Queue<CarControllerRxRefreshRate>();
   double? fastestLapTime;
   Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
 }
@@ -57,17 +57,17 @@ class PracticeSessionLap {
 }
 
 class TxCommand {
-  TxCommand({required this.id, required this.command, required this.value});
+  TxCommand({required this.id, required this.command, required this.tx});
 
   final int id;
   final OxigenTxCommand command;
-  final dynamic value;
+  final TxCarControllerPair tx;
 }
 
-class CarControllerTxRefreshRate {
-  CarControllerTxRefreshRate({required this.txOffset, required this.refreshRate});
+class CarControllerRxRefreshRate {
+  CarControllerRxRefreshRate({required this.timestamp, required this.refreshRate});
 
-  final int txOffset;
+  final int timestamp;
   final int refreshRate;
 }
 
@@ -128,8 +128,9 @@ class DongleFirmwareVersionResponse {
 }
 
 class RxResponse {
-  RxResponse({required this.rxBufferLength});
+  RxResponse({required this.timestamp, required this.rxBufferLength});
 
+  final int timestamp;
   final int rxBufferLength;
   Map<int, RxCarControllerPair> updatedRxCarControllerPairs = {};
 }
@@ -195,29 +196,7 @@ class SerialPortWorker {
       } else if (message is TxTimeoutRequest) {
         _txTimeout = message.txTimeout;
       } else if (message is TxCommand) {
-        switch (message.command) {
-          case OxigenTxCommand.maximumSpeed:
-            _carControllerPairs[message.id]!.tx.maximumSpeed = message.value;
-            break;
-          case OxigenTxCommand.minimumSpeed:
-            _carControllerPairs[message.id]!.tx.minimumSpeed = message.value;
-            break;
-          case OxigenTxCommand.pitlaneSpeed:
-            _carControllerPairs[message.id]!.tx.pitlaneSpeed = message.value;
-            break;
-          case OxigenTxCommand.maximumBrake:
-            _carControllerPairs[message.id]!.tx.maximumBrake = message.value;
-            break;
-          case OxigenTxCommand.forceLcUp:
-            _carControllerPairs[message.id]!.tx.forceLcUp = message.value;
-            break;
-          case OxigenTxCommand.forceLcDown:
-            _carControllerPairs[message.id]!.tx.forceLcDown = message.value;
-            break;
-          case OxigenTxCommand.transmissionPower:
-            _carControllerPairs[message.id]!.tx.transmissionPower = message.value;
-            break;
-        }
+        _carControllerPairs[message.id]!.tx = message.tx;
         _txCommandQueue.addLast(message);
       } else if (message == null) {
         break;
@@ -437,11 +416,15 @@ class SerialPortWorker {
         return;
       }
 
+      bool commmandSent = false;
+
       var id = 0;
       var byte3 = 0;
       var byte4 = 0;
 
       if (_txCommandQueue.isNotEmpty) {
+        commmandSent = true;
+
         final txCommand = _txCommandQueue.first;
         _txCommandQueue.removeFirst();
         _txCommandQueue.removeWhere((x) => x.id == txCommand.id && x.command == txCommand.command);
@@ -496,6 +479,9 @@ class SerialPortWorker {
 
       final bytes = Uint8List.fromList([byte0, _maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
       _serialPort!.write(bytes, timeout: 0);
+      if (commmandSent) {
+        print(bytes);
+      }
 
       if (_txTimeoutTimer != null) {
         _txTimeoutTimer!.cancel();
@@ -516,14 +502,15 @@ class SerialPortWorker {
     _serialPortReader = SerialPortReader(_serialPort!);
     _serialPortStreamSubscription = _serialPortReader!.stream.listen((buffer) async {
       //print('_serialPortReadStream');
+      final now = DateTime.now();
       try {
         if (buffer.length == 5) {
           _unusedBuffer = null;
           _callbackPort.send(DongleFirmwareVersionResponse(dongleFirmwareVersion: buffer[0] + buffer[1] / 100));
-          _callbackPort.send(RxResponse(rxBufferLength: buffer.length));
+          _callbackPort.send(RxResponse(timestamp: now.millisecondsSinceEpoch, rxBufferLength: buffer.length));
         } else if (buffer.length % 13 == 0) {
           _unusedBuffer = null;
-          _callbackPort.send(_processBuffer(buffer, buffer.length));
+          _callbackPort.send(_processBuffer(buffer, buffer.length, now));
         } else {
           //print('Got ${buffer.length} characters from stream');
           if (_unusedBuffer == null) {
@@ -536,9 +523,9 @@ class SerialPortWorker {
           }
           if (_unusedBuffer!.length % 13 == 0) {
             //print('Combining ${_unusedBuffer!.length} characters from stream');
-            _callbackPort.send(_processBuffer(_unusedBuffer!, buffer.length));
+            _callbackPort.send(_processBuffer(_unusedBuffer!, buffer.length, now));
           } else {
-            _callbackPort.send(RxResponse(rxBufferLength: buffer.length));
+            _callbackPort.send(RxResponse(timestamp: now.millisecondsSinceEpoch, rxBufferLength: buffer.length));
           }
         }
 
@@ -558,9 +545,8 @@ class SerialPortWorker {
     });
   }
 
-  RxResponse _processBuffer(Uint8List buffer, int rxBufferLength) {
-    final result = RxResponse(rxBufferLength: rxBufferLength);
-    final now = DateTime.now();
+  RxResponse _processBuffer(Uint8List buffer, int rxBufferLength, DateTime now) {
+    final result = RxResponse(timestamp: now.millisecondsSinceEpoch, rxBufferLength: rxBufferLength);
     var offset = 0;
     do {
       final id = buffer[1 + offset];
@@ -571,8 +557,8 @@ class SerialPortWorker {
           now: now);
 
       if (_carControllerPairs[id]!.rx.refreshRate != null) {
-        _carControllerPairs[id]!.rx.txRefreshRates.addLast(CarControllerTxRefreshRate(
-            txOffset: now.millisecondsSinceEpoch, refreshRate: _carControllerPairs[id]!.rx.refreshRate!));
+        _carControllerPairs[id]!.rx.txRefreshRates.addLast(CarControllerRxRefreshRate(
+            timestamp: now.millisecondsSinceEpoch, refreshRate: _carControllerPairs[id]!.rx.refreshRate!));
         while (_carControllerPairs[id]!.rx.txRefreshRates.length >= 20) {
           _carControllerPairs[id]!.rx.txRefreshRates.removeFirst();
         }
