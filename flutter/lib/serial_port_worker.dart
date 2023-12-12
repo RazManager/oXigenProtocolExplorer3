@@ -12,7 +12,6 @@ class TxCarControllerPair {
   int? maximumSpeed;
   int? minimumSpeed;
   int? pitlaneSpeed;
-  DateTime? pitlaneSpeedSetAt;
   int? maximumBrake;
   bool? forceLcUp;
   bool? forceLcDown;
@@ -46,14 +45,22 @@ class RxCarControllerPair {
   int? refreshRate;
   Queue<CarControllerRxRefreshRate> txRefreshRates = Queue<CarControllerRxRefreshRate>();
   double? fastestLapTime;
+  List<TriggerMeanValue> triggerMeanValues = [];
   Queue<PracticeSessionLap> practiceSessionLaps = Queue<PracticeSessionLap>();
+}
+
+class TriggerMeanValue {
+  TriggerMeanValue({required this.timestamp, required this.triggerMeanValue});
+
+  final int timestamp;
+  final int triggerMeanValue;
 }
 
 class PracticeSessionLap {
   PracticeSessionLap({required this.lap, required this.lapTime});
 
-  late int lap;
-  late double lapTime;
+  final int lap;
+  final double lapTime;
 }
 
 class TxCommand {
@@ -416,15 +423,11 @@ class SerialPortWorker {
         return;
       }
 
-      bool commmandSent = false;
-
       var id = 0;
       var byte3 = 0;
       var byte4 = 0;
 
       if (_txCommandQueue.isNotEmpty) {
-        commmandSent = true;
-
         final txCommand = _txCommandQueue.first;
         _txCommandQueue.removeFirst();
         _txCommandQueue.removeWhere((x) => x.id == txCommand.id && x.command == txCommand.command);
@@ -479,9 +482,6 @@ class SerialPortWorker {
 
       final bytes = Uint8List.fromList([byte0, _maximumSpeed!, id, byte3, byte4, 0, 0, 0, 0, 0, 0]);
       _serialPort!.write(bytes, timeout: 0);
-      if (commmandSent) {
-        print(bytes);
-      }
 
       if (_txTimeoutTimer != null) {
         _txTimeoutTimer!.cancel();
@@ -702,5 +702,9 @@ class SerialPortWorker {
           now.millisecondsSinceEpoch - rxCarControllerPair.updatedAt!.millisecondsSinceEpoch;
     }
     rxCarControllerPair.updatedAt = now;
+
+    rxCarControllerPair.triggerMeanValues.add(TriggerMeanValue(
+        timestamp: now.millisecondsSinceEpoch, triggerMeanValue: rxCarControllerPair.triggerMeanValue));
+    rxCarControllerPair.triggerMeanValues.removeWhere((x) => x.timestamp < (now.millisecondsSinceEpoch - 10 * 1000));
   }
 }

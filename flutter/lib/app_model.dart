@@ -172,7 +172,6 @@ class AppModel extends ChangeNotifier {
 
   void oxigenTxPitlaneSpeedSet(int id, int value) {
     _carControllerPairs[id]!.tx.pitlaneSpeed = value;
-    _carControllerPairs[id]!.tx.pitlaneSpeedSetAt = DateTime.now();
     _sendPort!.send(TxCommand(id: id, command: OxigenTxCommand.pitlaneSpeed, tx: _carControllerPairs[id]!.tx));
     notifyListeners();
   }

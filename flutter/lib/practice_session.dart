@@ -256,19 +256,18 @@ class PracticeSessionTabId extends StatelessWidget {
               primaryXAxis: NumericAxis(
                 title: AxisTitle(text: 'Lap'),
                 interval: 1,
+                majorGridLines: const MajorGridLines(width: 0),
               ),
-              primaryYAxis: NumericAxis(
-                  title: AxisTitle(text: 'Lap times (s)'),
-                  minimum: carControllerPair.rx.fastestLapTime ?? 0,
-                  plotBands: [
-                    if (carControllerPair.rx.fastestLapTime != null)
-                      PlotBand(
-                          isVisible: true,
-                          start: carControllerPair.rx.fastestLapTime!,
-                          end: carControllerPair.rx.fastestLapTime!,
-                          borderColor: Colors.green,
-                          borderWidth: 4)
-                  ]),
+              primaryYAxis:
+                  NumericAxis(minimum: carControllerPair.rx.fastestLapTime ?? 0, isVisible: false, plotBands: [
+                if (carControllerPair.rx.fastestLapTime != null)
+                  PlotBand(
+                      isVisible: true,
+                      start: carControllerPair.rx.fastestLapTime!,
+                      end: carControllerPair.rx.fastestLapTime!,
+                      borderColor: Colors.green,
+                      borderWidth: 4)
+              ]),
               series: [
                 LineSeries<PracticeSessionLap, int>(
                   dataSource: carControllerPair.rx.practiceSessionLaps.toList(),
@@ -276,59 +275,80 @@ class PracticeSessionTabId extends StatelessWidget {
                   yValueMapper: (data, _) => data.lapTime,
                   dataLabelSettings: const DataLabelSettings(isVisible: true),
                   markerSettings: const MarkerSettings(isVisible: true),
-                  //animationDelay: 0,
-                  //animationDuration: 0,
+                  animationDelay: 0,
+                  animationDuration: 0,
                 ),
               ],
             ),
           ),
-          SfRadialGauge(
-            axes: [
-              RadialAxis(
-                ticksPosition: ElementsPosition.outside,
-                labelsPosition: ElementsPosition.outside,
-                maximum: 255,
-                ranges: [
-                  GaugeRange(
-                    startValue: rangeMinimumSpeed(),
-                    endValue: rangeMaximumSpeed(),
-                    color: Colors.green,
+          Column(
+            children: [
+              SfRadialGauge(
+                axes: [
+                  RadialAxis(
+                    ticksPosition: ElementsPosition.outside,
+                    labelsPosition: ElementsPosition.outside,
+                    maximum: 255,
+                    ranges: [
+                      GaugeRange(
+                        startValue: rangeMinimumSpeed(),
+                        endValue: rangeMaximumSpeed(),
+                        color: Colors.green,
+                      )
+                    ],
+                  ),
+                  RadialAxis(
+                    radiusFactor: 0.7,
+                    maximum: 127,
+                    pointers: [
+                      RangePointer(value: carControllerPair.rx.triggerMeanValue.toDouble(), color: Colors.indigo)
+                    ],
+                    annotations: [
+                      GaugeAnnotation(
+                        angle: 90,
+                        widget: Text(
+                          carControllerPair.rx.triggerMeanValue.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 48),
+                        ),
+                      ),
+                      GaugeAnnotation(
+                          angle: 90,
+                          positionFactor: 0.4,
+                          widget: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (carControllerPair.rx.carOnTrack == OxigenRxCarOnTrack.carIsNotOnTheTrack)
+                                const Icon(Icons.car_crash, color: Colors.red),
+                              if (carControllerPair.rx.carPitLane == OxigenRxCarPitLane.carIsInThePitLane)
+                                const Icon(Icons.car_repair),
+                              if (carControllerPair.rx.arrowUpButton == OxigenRxArrowUpButton.buttonPressed)
+                                const Icon(Icons.arrow_upward),
+                              if (carControllerPair.rx.arrowDownButton == OxigenRxArrowDownButton.buttonPressed)
+                                const Icon(Icons.arrow_downward),
+                              if (carControllerPair.rx.trackCall == OxigenRxTrackCall.yes) const Icon(Icons.flag),
+                              if (carControllerPair.rx.controllerBatteryLevel == OxigenRxControllerBatteryLevel.low)
+                                const Icon(Icons.battery_alert, color: Colors.red),
+                            ],
+                          ))
+                    ],
                   )
                 ],
               ),
-              RadialAxis(
-                radiusFactor: 0.7,
-                maximum: 127,
-                pointers: [RangePointer(value: carControllerPair.rx.triggerMeanValue.toDouble(), color: Colors.indigo)],
-                annotations: [
-                  GaugeAnnotation(
-                    angle: 90,
-                    widget: Text(
-                      carControllerPair.rx.triggerMeanValue.toString(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 48),
-                    ),
-                  ),
-                  GaugeAnnotation(
-                      angle: 90,
-                      positionFactor: 0.4,
-                      widget: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (carControllerPair.rx.carOnTrack == OxigenRxCarOnTrack.carIsNotOnTheTrack)
-                            const Icon(Icons.car_crash, color: Colors.red),
-                          if (carControllerPair.rx.carPitLane == OxigenRxCarPitLane.carIsInThePitLane)
-                            const Icon(Icons.car_repair),
-                          if (carControllerPair.rx.arrowUpButton == OxigenRxArrowUpButton.buttonPressed)
-                            const Icon(Icons.arrow_upward),
-                          if (carControllerPair.rx.arrowDownButton == OxigenRxArrowDownButton.buttonPressed)
-                            const Icon(Icons.arrow_downward),
-                          if (carControllerPair.rx.trackCall == OxigenRxTrackCall.yes) const Icon(Icons.flag),
-                          if (carControllerPair.rx.controllerBatteryLevel == OxigenRxControllerBatteryLevel.low)
-                            const Icon(Icons.battery_alert, color: Colors.red),
-                        ],
-                      ))
-                ],
-              )
+              Expanded(
+                child: SfCartesianChart(
+                  primaryXAxis: NumericAxis(isVisible: false),
+                  primaryYAxis: NumericAxis(maximum: 127, minimum: 0),
+                  series: [
+                    AreaSeries(
+                      dataSource: carControllerPair.rx.triggerMeanValues,
+                      xValueMapper: (data, _) => data.timestamp,
+                      yValueMapper: (data, _) => data.triggerMeanValue,
+                      animationDelay: 0,
+                      animationDuration: 0,
+                    )
+                  ],
+                ),
+              ),
             ],
           ),
         ],
